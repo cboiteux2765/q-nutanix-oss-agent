@@ -8,9 +8,9 @@ Q* is developing an AI agent to help open-source maintainers triage issues, orga
 
 ## Team
 
-- Viktor Minchev — Team Lead
+- Clement Boiteux — Team Lead
 - Mihir Srivastava — Scribe
-- Clement Boiteux
+- Timothy Nguyen
 - Shanqin Chen
 - Hanson Hu
 
