@@ -12,7 +12,7 @@ Q* is developing an AI agent to help open-source maintainers triage issues, orga
 - Mihir Srivastava — Scribe
 - Shanqin Chen
 - Hanson Hu
-- Timothy Nguyen
+
 
 
 Nutanix Mentors: Srinath GS and Kostadis Roussos.
