@@ -10,9 +10,9 @@ Q* is developing an AI agent to help open-source maintainers triage issues, orga
 
 - Clement Boiteux — Team Lead
 - Mihir Srivastava — Scribe
-- Timothy Nguyen
 - Shanqin Chen
 - Hanson Hu
+- Timothy Nguyen
 
 
 Nutanix mentors: Srinath GS and Kostadis Roussos.
