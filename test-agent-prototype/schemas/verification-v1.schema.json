@@ -1,0 +1,434 @@
+{
+  "$defs": {
+    "ExecutionStatus": {
+      "enum": [
+        "QUEUED",
+        "PREFLIGHT",
+        "TESTING",
+        "DIAGNOSING",
+        "REPAIRING",
+        "COMPLETED",
+        "BLOCKED",
+        "CANCELLED",
+        "ERROR"
+      ],
+      "title": "ExecutionStatus",
+      "type": "string"
+    },
+    "FailureClass": {
+      "enum": [
+        "CODE_REGRESSION",
+        "ENVIRONMENT_BLOCKED",
+        "SPEC_AMBIGUOUS",
+        "TEST_FLAKY",
+        "UNKNOWN"
+      ],
+      "title": "FailureClass",
+      "type": "string"
+    },
+    "Metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "debug_iterations": {
+          "default": 0,
+          "title": "Debug Iterations",
+          "type": "integer"
+        },
+        "test_executions": {
+          "default": 0,
+          "title": "Test Executions",
+          "type": "integer"
+        },
+        "runtime_seconds": {
+          "default": 0.0,
+          "title": "Runtime Seconds",
+          "type": "number"
+        },
+        "model_spend_usd": {
+          "default": 0.0,
+          "title": "Model Spend Usd",
+          "type": "number"
+        },
+        "model_reserved_usd": {
+          "default": 0.0,
+          "title": "Model Reserved Usd",
+          "type": "number"
+        },
+        "queue_seconds": {
+          "default": 0.0,
+          "title": "Queue Seconds",
+          "type": "number"
+        },
+        "phase_elapsed_seconds": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Phase Elapsed Seconds",
+          "type": "object"
+        },
+        "ci_cost_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ci Cost Usd"
+        }
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "QAReview": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "PENDING",
+          "enum": [
+            "PENDING",
+            "APPROVED",
+            "REJECTED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reviewer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer"
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timestamp"
+        },
+        "identity_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity Hash"
+        },
+        "artifact_manifest_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Manifest Hash"
+        }
+      },
+      "title": "QAReview",
+      "type": "object"
+    },
+    "Readiness": {
+      "enum": [
+        "READY_FOR_QA",
+        "CHANGES_REQUIRED",
+        "BLOCKED",
+        "INCONCLUSIVE",
+        "STALE"
+      ],
+      "title": "Readiness",
+      "type": "string"
+    },
+    "RequirementOutcome": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "NOT_VERIFIED"
+      ],
+      "title": "RequirementOutcome",
+      "type": "string"
+    },
+    "RequirementResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "test_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Test Ids",
+          "type": "array"
+        },
+        "result": {
+          "$ref": "#/$defs/RequirementOutcome"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "test_ids",
+        "result"
+      ],
+      "title": "RequirementResult",
+      "type": "object"
+    },
+    "RootCause": {
+      "additionalProperties": false,
+      "properties": {
+        "failure_class": {
+          "$ref": "#/$defs/FailureClass"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "observations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observations",
+          "type": "array"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "reproduction": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reproduction",
+          "type": "array"
+        },
+        "owner_role": {
+          "default": "engineer",
+          "title": "Owner Role",
+          "type": "string"
+        },
+        "next_action": {
+          "default": "NEEDS_ENGINEER",
+          "title": "Next Action",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "failure_class",
+        "summary"
+      ],
+      "title": "RootCause",
+      "type": "object"
+    },
+    "TestTotals": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "skipped": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Skipped",
+          "type": "integer"
+        }
+      },
+      "title": "TestTotals",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "repo": {
+      "title": "Repo",
+      "type": "string"
+    },
+    "pr_number": {
+      "title": "Pr Number",
+      "type": "integer"
+    },
+    "base_sha": {
+      "title": "Base Sha",
+      "type": "string"
+    },
+    "reviewed_head_sha": {
+      "title": "Reviewed Head Sha",
+      "type": "string"
+    },
+    "spec_id": {
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "spec_hash": {
+      "title": "Spec Hash",
+      "type": "string"
+    },
+    "test_profile_hash": {
+      "title": "Test Profile Hash",
+      "type": "string"
+    },
+    "environment_fingerprint": {
+      "title": "Environment Fingerprint",
+      "type": "string"
+    },
+    "policy_version": {
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "identity_hash": {
+      "title": "Identity Hash",
+      "type": "string"
+    },
+    "execution_status": {
+      "$ref": "#/$defs/ExecutionStatus",
+      "default": "QUEUED"
+    },
+    "readiness": {
+      "$ref": "#/$defs/Readiness",
+      "default": "INCONCLUSIVE"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "tests": {
+      "$ref": "#/$defs/TestTotals"
+    },
+    "requirements": {
+      "items": {
+        "$ref": "#/$defs/RequirementResult"
+      },
+      "title": "Requirements",
+      "type": "array"
+    },
+    "candidate_patch": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Patch"
+    },
+    "unresolved_findings": {
+      "items": {
+        "$ref": "#/$defs/RootCause"
+      },
+      "title": "Unresolved Findings",
+      "type": "array"
+    },
+    "artifact_manifest_uri": {
+      "title": "Artifact Manifest Uri",
+      "type": "string"
+    },
+    "artifact_manifest_hash": {
+      "default": "",
+      "title": "Artifact Manifest Hash",
+      "type": "string"
+    },
+    "metrics": {
+      "$ref": "#/$defs/Metrics"
+    },
+    "qa_review": {
+      "$ref": "#/$defs/QAReview"
+    },
+    "human_approval_required": {
+      "const": true,
+      "default": true,
+      "title": "Human Approval Required",
+      "type": "boolean"
+    },
+    "lifecycle": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Lifecycle",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "repo",
+    "pr_number",
+    "base_sha",
+    "reviewed_head_sha",
+    "spec_id",
+    "spec_hash",
+    "test_profile_hash",
+    "environment_fingerprint",
+    "policy_version",
+    "identity_hash",
+    "artifact_manifest_uri"
+  ],
+  "title": "Verification",
+  "type": "object"
+}
