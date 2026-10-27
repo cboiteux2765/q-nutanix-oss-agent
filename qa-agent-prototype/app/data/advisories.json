@@ -1,0 +1,21 @@
+{
+  "_note": "Offline demo advisory feed. Entries are FICTIONAL and exist only to exercise the QA Agent. Replace with a live source (pip-audit / OSV) before real use.",
+  "advisories": [
+    {
+      "id": "DEMO-2026-0001",
+      "package": "evo-demo-yamlish",
+      "affected_versions": ["1.0.0", "1.0.1"],
+      "fixed_in": "1.0.2",
+      "severity": "HIGH",
+      "summary": "Fictional demo advisory: unsafe loader executes arbitrary code from untrusted input."
+    },
+    {
+      "id": "DEMO-2026-0002",
+      "package": "evo-demo-colors",
+      "affected_versions": ["2.3.0"],
+      "fixed_in": "2.3.1",
+      "severity": "LOW",
+      "summary": "Fictional demo advisory: misleading terminal output on Windows."
+    }
+  ]
+}

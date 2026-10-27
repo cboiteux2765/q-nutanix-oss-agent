@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evo-qa-agent-prototype"
+version = "0.1.0"
+description = "QA phase for EVO: verdicts on PRs that passed the Test Agent"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.10,<3", "bandit>=1.7,<2", "pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
