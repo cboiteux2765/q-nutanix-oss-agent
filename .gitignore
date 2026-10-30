@@ -1,0 +1,6 @@
+__pycache__/
+.venv/
+runs/
+specifications/*.md
+product-spec-demo-site.tar.gz
+.env
