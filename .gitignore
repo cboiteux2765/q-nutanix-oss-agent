@@ -13,3 +13,8 @@ frontend/dist/
 frontend/*.tsbuildinfo
 .DS_Store
 .pytest-tmp/
+
+# Product spec agent prototype
+runs/
+specifications/*.md
+product-spec-demo-site.tar.gz

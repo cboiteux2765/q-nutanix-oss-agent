@@ -53,3 +53,21 @@ uv run pytest                      # tests (scripted model, no API calls)
 ```
 
 Python backend in `src/evo`, React frontend in `frontend/src`, tests in `tests/`. Local data is stored in `.evo/`; set `EVO_DATA_DIR` to change the location. The earlier prototype is on the [`mihir-coding` branch](https://github.com/cboiteux2765/q-nutanix-oss-agent/tree/mihir-coding/coding-agent).
+
+## Product Spec Agent (prototype)
+
+Turns one GitHub issue into a cited product specification and a JSON handoff for the
+coding agent. Code lives in `agent/`; it does not launch a coding agent or create PRs.
+See [PROTOTYPE.md](docs/PROTOTYPE.md), [the local demo guide](docs/LOCAL_DEMO.md),
+[the handoff guide](docs/HANDOFF.md) and [product discovery](docs/PRODUCT_DESIGN.md).
+
+```powershell
+.venv/Scripts/python.exe -m unittest discover -v
+.venv/Scripts/python.exe -m agent.mini_spec examples/evidence.json --allowed-repo example/review-fixture --replay examples/replay.json --verbose
+```
+
+**Review policy.** Product-mode runs auto-clear a live spec for handoff only when
+structural checks pass, product context and quoted evidence are present, assessed risk
+is low, and there are no assumptions or unresolved decisions; otherwise they report
+NEEDS_REVIEW with reasons. Replay runs never auto-clear. AUTO_CLEARED is not human
+APPROVED and does not establish factual correctness. Hash checks invalidate changed artifacts.
