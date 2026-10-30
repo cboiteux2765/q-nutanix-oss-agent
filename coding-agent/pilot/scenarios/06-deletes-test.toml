@@ -1,0 +1,66 @@
+# Pilot scenario 06-deletes-test: issue #6 word_count() should ignore punctuation-only tokens
+issue_id = 6
+issue_title = "word_count() should ignore punctuation-only tokens"
+spec = '''
+# Product spec: word_count() punctuation
+
+Issue: #6
+
+## Users
+Writers counting words.
+
+## Problem
+Dashes count as words.
+
+## Scope
+In scope:
+- Fix `word_count()`
+
+Out of scope:
+- Unicode word segmentation
+
+## Requirements
+- **REQ-1**: word_count() ignores tokens that contain no letters or digits.
+
+## Acceptance criteria
+- **AC-1** (REQ-1): word_count('a - b') == 2
+'''
+requirements = [
+  { id = "REQ-1", text = "word_count() ignores tokens that contain no letters or digits." },
+]
+acceptance_criteria = [
+  { id = "AC-1", requirement_ids = ["REQ-1"], description = "word_count('a - b') == 2" },
+]
+
+[scope]
+allowed_paths = ["src/pilot_stats/text.py"]
+
+[environment]
+test_command = "python -m pytest -q"
+test_profile_id = "pytest-default-v1"
+environment_manifest_id = "pilot-env-v1"
+
+[expected]
+status = "BLOCKED"
+blocker = "SCOPE_VIOLATION"
+violations = ["TEST_DELETED"]
+
+[implementation]
+
+[[implementation.actions]]
+replace = "src/pilot_stats/text.py"
+old = '''
+    return len(text.split())
+'''
+new = '''
+    return sum(1 for token in text.split() if any(ch.isalnum() for ch in token))
+'''
+
+[[implementation.actions]]
+delete = "tests/test_text.py"
+
+[implementation.notes]
+summary = "Count only alphanumeric tokens; removed a test that got in the way."
+
+[implementation.notes.criteria]
+AC-1 = { status = "IMPLEMENTED" }

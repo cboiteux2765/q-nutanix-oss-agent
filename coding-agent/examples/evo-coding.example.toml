@@ -1,0 +1,46 @@
+# Example operator configuration for the EVO Coding Agent.
+# Relative paths are resolved against this file's directory.
+
+work_dir = "../.evo-coding"          # run state, workspaces and artifacts
+
+[workspace]
+backend = "local"                    # "local" (trusted repos only) or "docker"
+command_timeout_seconds = 300
+docker_image = "evo-coding-sandbox:py312"
+docker_network_during_setup = false  # setup commands get network only if true; implementer never does
+
+[implementer]
+kind = "mini_swe"                    # "mini_swe" | "native" | "pi" | "rlm" | "scripted"
+step_limit = 40
+command_timeout_seconds = 120
+# pi_command = ["pi"]                # or ["node", "C:/path/to/pi-coding-agent/dist/bundle/cli.js"]
+# rlm_sub_model = "gpt-6-luna"       # model for RLM llm_query() sub-calls (default: [llm].model)
+# rlm_max_subcalls = 50
+
+[llm]
+# Any OpenAI-compatible endpoint. The key is read from the environment variable named here.
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+model = "gpt-6-luna"                 # default
+api_style = "responses"              # luna needs the Responses API for tool calls with reasoning on
+reasoning_effort = "high"            # none | low | medium | high | xhigh | max
+# Prices come from the built-in table for known models. Set these to override (USD per 1M tokens):
+# input_usd_per_mtok = 0.10
+# cached_input_usd_per_mtok = 0.01
+# output_usd_per_mtok = 0.50
+
+[publisher]
+kind = "github"                      # "github" or "local"
+token_env = "EVO_GITHUB_TOKEN"       # fine-grained PAT / app token: contents:write + pull_requests:write
+labels = ["evo:coding"]
+comment_on_issue = true
+
+[policy]
+branch_prefix = "evo/"
+hard_max_usd = 2.0                   # operator ceilings; handoffs may only lower these
+hard_max_seconds = 1800
+hard_max_steps = 40
+hard_max_revisions = 2
+lifetime_max_usd = 5.0               # total across all runs in work_dir (see `evo-code spend`)
+extra_forbidden_paths = ["deploy/**", "infra/**"]
+keep_workspaces = true

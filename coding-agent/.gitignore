@@ -1,0 +1,21 @@
+# Python / tooling
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest-tmp/
+.pytest_cache/
+.ruff_cache/
+
+# Agent run state, workspaces, artifacts and spend_ledger.jsonl
+.evo-coding/
+
+# Demo output (README uses demo-out)
+demo-out/
+demo-output/
+
+# Local secrets and configs
+.env
+*.local.toml

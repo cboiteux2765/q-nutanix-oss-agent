@@ -1,0 +1,57 @@
+# Pilot scenario 03-missing-prereq: issue #3 Add zscore() against the reference dataset
+issue_id = 3
+issue_title = "Add zscore() against the reference dataset"
+spec = '''
+# Product spec: zscore()
+
+Issue: #3
+
+## Users
+Analysts comparing values to the reference population.
+
+## Problem
+No standardization helper.
+
+## Scope
+In scope:
+- Add `zscore()`
+
+Out of scope:
+- Shipping the dataset
+
+## Requirements
+- **REQ-1**: zscore(x) standardizes x against the reference dataset in data/reference.csv.
+
+## Acceptance criteria
+- **AC-1** (REQ-1): zscore of the reference mean is 0
+'''
+requirements = [
+  { id = "REQ-1", text = "zscore(x) standardizes x against the reference dataset in data/reference.csv." },
+]
+acceptance_criteria = [
+  { id = "AC-1", requirement_ids = ["REQ-1"], description = "zscore of the reference mean is 0" },
+]
+
+[scope]
+allowed_paths = ["src/pilot_stats/**"]
+
+[environment]
+test_command = "python -m pytest -q"
+test_profile_id = "pytest-default-v1"
+environment_manifest_id = "pilot-env-v1"
+prerequisites = [
+  { name = "reference-dataset", check_command = "test -f data/reference.csv", owner = "environment_owner", remediation = "Publish data/reference.csv to the pilot repository or sandbox image." },
+]
+
+[expected]
+status = "BLOCKED"
+blocker = "MISSING_PREREQUISITE"
+next_owner = "environment_owner"
+
+[implementation]
+
+[[implementation.actions]]
+write = "src/pilot_stats/zscore.py"
+content = '''
+# should never run
+'''

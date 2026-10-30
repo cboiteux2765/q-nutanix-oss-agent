@@ -1,0 +1,9 @@
+[project]
+name = "pilot-stats"
+version = "0.1.0"
+description = "Toy statistics and text helpers used as the EVO pilot repository"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

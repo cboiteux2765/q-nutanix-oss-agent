@@ -1,0 +1,52 @@
+[project]
+name = "evo-coding-agent"
+version = "0.1.0"
+description = "EVO Coding Agent: turns an approved spec handoff into a scoped, reviewable draft pull request"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.10,<3",
+    "typer>=0.12,<1",
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+# litellm is pinned to 1.104.0 (published 2026-10-03), a release from before the 2026-10-21 PyPI
+# compromise (1.107.0) and the rushed patch releases around it. Do not bump it without checking
+# advisories and inspecting the wheel; see README "Supply chain".
+# litellm imports `mcp` whenever tools are passed but does not declare it, so we do.
+mini-swe = ["mini-swe-agent==2.4.6", "litellm==1.104.0", "mcp>=1.0"]
+
+[project.scripts]
+evo-code = "evo_coding.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evo_coding"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# A project-local basetemp avoids WinError 448 when pytest cleans its symlinked temp dir on Windows.
+addopts = "--basetemp=.pytest-tmp -p no:cacheprovider"
+markers = [
+    "e2e: end-to-end scenario tests (local git, real subprocesses)",
+    "docker: requires a running Docker daemon",
+    "live_github: talks to real GitHub; opt-in via EVO_E2E_GITHUB_REPO",
+    "mini_swe: requires the mini-swe extra",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["evo_coding", "conftest", "fake_openai"]

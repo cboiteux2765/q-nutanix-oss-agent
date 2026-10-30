@@ -1,0 +1,105 @@
+# Pilot scenario 01-median-even: issue #1 median() is wrong for even-length lists and crashes on empty input
+issue_id = 1
+issue_title = "median() is wrong for even-length lists and crashes on empty input"
+risk_tier = "LOW"
+spec = '''
+# Product spec: median() for even-length and empty lists
+
+Issue: #1
+
+## Users
+Library users computing summary statistics.
+
+## Problem
+`median([1, 2, 3, 4])` returns 3 instead of 2.5, and `median([])` raises IndexError instead of a clear error.
+
+## Scope
+In scope:
+- Fix `median()` in `src/pilot_stats/stats.py`
+- Add regression tests
+
+Out of scope:
+- Changing `mean()` or `mode()`
+- Supporting non-numeric input
+
+## Requirements
+- **REQ-1**: median() returns the mean of the two middle values for even-length input.
+- **REQ-2**: median() raises ValueError for empty input, consistent with mean().
+
+## Acceptance criteria
+- **AC-1** (REQ-1): median([1, 2, 3, 4]) == 2.5
+- **AC-2** (REQ-2): median([]) raises ValueError
+- **AC-3** (REQ-1): odd-length behaviour is unchanged
+'''
+requirements = [
+  { id = "REQ-1", text = "median() returns the mean of the two middle values for even-length input." },
+  { id = "REQ-2", text = "median() raises ValueError for empty input, consistent with mean()." },
+]
+acceptance_criteria = [
+  { id = "AC-1", requirement_ids = ["REQ-1"], description = "median([1, 2, 3, 4]) == 2.5", test_hints = ["tests/test_median.py::test_median_even"] },
+  { id = "AC-2", requirement_ids = ["REQ-2"], description = "median([]) raises ValueError", test_hints = ["tests/test_median.py::test_median_empty"] },
+  { id = "AC-3", requirement_ids = ["REQ-1"], description = "odd-length behaviour is unchanged", test_hints = ["tests/test_stats.py::test_median_odd"] },
+]
+
+[scope]
+allowed_paths = ["src/pilot_stats/stats.py"]
+may_add_tests = true
+may_modify_tests = false
+max_changed_files = 4
+max_changed_lines = 80
+
+[environment]
+test_command = "python -m pytest -q"
+test_profile_id = "pytest-default-v1"
+environment_manifest_id = "pilot-env-v1"
+
+[expected]
+status = "TESTING"
+
+[implementation]
+
+[[implementation.actions]]
+replace = "src/pilot_stats/stats.py"
+old = '''
+def median(values):
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2]
+'''
+new = '''
+def median(values):
+    if not values:
+        raise ValueError("median() requires at least one value")
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2
+'''
+
+[[implementation.actions]]
+write = "tests/test_median.py"
+content = '''
+import pytest
+
+from pilot_stats import median
+
+
+def test_median_even():
+    assert median([1, 2, 3, 4]) == 2.5
+
+
+def test_median_empty():
+    with pytest.raises(ValueError):
+        median([])
+'''
+
+[[implementation.actions]]
+run = "python -m pytest -q"
+
+[implementation.notes]
+summary = "median() now averages the two middle values for even-length input and raises ValueError for empty input. Added tests/test_median.py."
+
+[implementation.notes.criteria]
+AC-1 = { status = "IMPLEMENTED", notes = "average of middle pair" }
+AC-2 = { status = "IMPLEMENTED", notes = "explicit ValueError" }
+AC-3 = { status = "IMPLEMENTED", notes = "odd path unchanged" }

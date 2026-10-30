@@ -1,0 +1,190 @@
+# Pilot scenario 02-percentile: issue #2 Add percentile(values, p)
+issue_id = 2
+issue_title = "Add percentile(values, p)"
+risk_tier = "MEDIUM"
+spec = '''
+# Product spec: percentile()
+
+Issue: #2
+
+## Users
+Analysts who need quantiles without pulling in numpy.
+
+## Problem
+There is no percentile helper.
+
+## Scope
+In scope:
+- Add `percentile()` and export it
+
+Out of scope:
+- Interpolated percentiles
+
+## Requirements
+- **REQ-1**: Provide percentile(values, p) using the nearest-rank method for 0 <= p <= 100.
+- **REQ-2**: percentile() raises ValueError for empty input or p outside [0, 100].
+
+## Acceptance criteria
+- **AC-1** (REQ-1): percentile([1, 2, 3, 4], 50) == 2 and percentile([1, 2, 3, 4], 100) == 4
+- **AC-2** (REQ-2): empty input and p=101 raise ValueError
+'''
+requirements = [
+  { id = "REQ-1", text = "Provide percentile(values, p) using the nearest-rank method for 0 <= p <= 100." },
+  { id = "REQ-2", text = "percentile() raises ValueError for empty input or p outside [0, 100]." },
+]
+acceptance_criteria = [
+  { id = "AC-1", requirement_ids = ["REQ-1"], description = "percentile([1, 2, 3, 4], 50) == 2 and percentile([1, 2, 3, 4], 100) == 4", test_hints = ["tests/test_percentile.py::test_percentile_basic"] },
+  { id = "AC-2", requirement_ids = ["REQ-2"], description = "empty input and p=101 raise ValueError", test_hints = ["tests/test_percentile.py::test_percentile_invalid"] },
+]
+
+[scope]
+allowed_paths = ["src/pilot_stats/stats.py", "src/pilot_stats/__init__.py"]
+may_add_tests = true
+may_modify_tests = true
+max_changed_files = 4
+max_changed_lines = 120
+
+[environment]
+test_command = "python -m pytest -q"
+test_profile_id = "pytest-default-v1"
+environment_manifest_id = "pilot-env-v1"
+
+[budget_limits]
+max_revisions = 2
+
+[expected]
+status = "TESTING"
+revision_status = "TESTING"
+
+[feedback]
+source = "test_agent"
+requested_by = "test-agent:pilot"
+failures = [
+  { test_id = "tests/hidden/test_percentile_spec.py::test_p100", message = "percentile([1, 2, 3, 4], 100) raised IndexError: list index out of range" },
+  { test_id = "tests/hidden/test_percentile_spec.py::test_p50", message = "percentile([1, 2, 3, 4], 50) returned 3, expected 2" },
+]
+findings = ["AC-1 not satisfied on the PR head"]
+
+[implementation]
+
+[implementation.revisions]
+
+[implementation.revisions.0]
+
+[[implementation.revisions.0.actions]]
+replace = "src/pilot_stats/stats.py"
+old = '''
+from collections import Counter
+'''
+new = '''
+import math
+from collections import Counter
+'''
+
+[[implementation.revisions.0.actions]]
+replace = "src/pilot_stats/stats.py"
+old = '''
+    return Counter(values).most_common(1)[0][0]
+'''
+new = '''
+    return Counter(values).most_common(1)[0][0]
+
+
+def percentile(values, p):
+    if not values or not 0 <= p <= 100:
+        raise ValueError("percentile() needs values and 0 <= p <= 100")
+    ordered = sorted(values)
+    return ordered[int(p / 100 * len(ordered))]
+'''
+
+[[implementation.revisions.0.actions]]
+replace = "src/pilot_stats/__init__.py"
+old = '''
+from .stats import mean, median, mode
+'''
+new = '''
+from .stats import mean, median, mode, percentile
+'''
+
+[[implementation.revisions.0.actions]]
+replace = "src/pilot_stats/__init__.py"
+old = "\"mode\", "
+new = "\"mode\", \"percentile\", "
+
+[[implementation.revisions.0.actions]]
+write = "tests/test_percentile.py"
+content = '''
+import pytest
+
+from pilot_stats import percentile
+
+
+def test_percentile_basic():
+    assert percentile([1, 2, 3, 4], 0) == 1
+
+
+def test_percentile_invalid():
+    with pytest.raises(ValueError):
+        percentile([], 50)
+    with pytest.raises(ValueError):
+        percentile([1], 101)
+'''
+
+[implementation.revisions.0.notes]
+summary = "Added percentile() (nearest rank) and exported it."
+
+[implementation.revisions.0.notes.criteria]
+AC-1 = { status = "IMPLEMENTED" }
+AC-2 = { status = "IMPLEMENTED" }
+
+[implementation.revisions.1]
+
+[[implementation.revisions.1.actions]]
+replace = "src/pilot_stats/stats.py"
+old = '''
+
+
+def percentile(values, p):
+    if not values or not 0 <= p <= 100:
+        raise ValueError("percentile() needs values and 0 <= p <= 100")
+    ordered = sorted(values)
+    return ordered[int(p / 100 * len(ordered))]
+'''
+new = '''
+
+
+def percentile(values, p):
+    if not values or not 0 <= p <= 100:
+        raise ValueError("percentile() needs values and 0 <= p <= 100")
+    ordered = sorted(values)
+    rank = max(1, math.ceil(p / 100 * len(ordered)))
+    return ordered[rank - 1]
+'''
+
+[[implementation.revisions.1.actions]]
+write = "tests/test_percentile.py"
+content = '''
+import pytest
+
+from pilot_stats import percentile
+
+
+def test_percentile_basic():
+    assert percentile([1, 2, 3, 4], 0) == 1
+    assert percentile([1, 2, 3, 4], 50) == 2
+    assert percentile([1, 2, 3, 4], 100) == 4
+
+
+def test_percentile_invalid():
+    with pytest.raises(ValueError):
+        percentile([], 50)
+    with pytest.raises(ValueError):
+        percentile([1], 101)
+'''
+
+[implementation.revisions.1.notes]
+summary = "Use ceil-based nearest rank so p=100 returns the maximum and p=50 the lower median; extended tests to the failing cases."
+
+[implementation.revisions.1.notes.criteria]
+AC-1 = { status = "IMPLEMENTED" }
+AC-2 = { status = "IMPLEMENTED" }
