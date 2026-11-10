@@ -71,6 +71,7 @@ def review(
         spec_hash=h.spec_hash if h else None,
         test_run_id=h.run_id if h else None,
         test_identity_hash=h.identity_hash if h else None,
+        test_artifact_manifest_hash=h.artifact_manifest_hash if h else None,
         verification_sha256=intake.verification_sha256,
     )
 
@@ -87,14 +88,25 @@ def review(
         write_outputs(decision, out_dir)
         return decision
 
-    files = gitutil.changed_files(repo, h.base_sha, head_sha)
+    try:
+        files = gitutil.changed_files(repo, h.base_sha, head_sha)
+        added = gitutil.added_lines(repo, h.base_sha, head_sha)
+    except gitutil.GitError as exc:
+        decision = QADecision(
+            **base, **identity, verdict=Verdict.BLOCKED,
+            reasons=[f"Cannot read reviewed Git changes: {exc}"],
+            next_owner="Operator (fetch the verified base and head commits)",
+            human_confirmation_required=False,
+        )
+        write_outputs(decision, out_dir)
+        return decision
     tier, risk_reasons = classify(files, policy)
     ctx = CheckContext(
         repo=repo,
         base_sha=h.base_sha,
         head_sha=head_sha,
         files=files,
-        added=gitutil.added_lines(repo, h.base_sha, head_sha),
+        added=added,
         policy=policy,
         tier=tier,
         advisories_path=advisories_path,
@@ -109,6 +121,10 @@ def review(
     checks += [run_check(name, planned(name, why), ctx) for name, why in PLANNED_CHECKS]
 
     verdict, reasons, next_owner, confirm = decide(tier, checks, policy, changed_files=len(files))
+    if verdict == Verdict.APPROVED and h.human_approval_required is not False:
+        confirm = True
+        next_owner = "Human reviewer confirms, then maintainer merges"
+        reasons.append("Test Agent requires human approval; QA preserves this requirement")
     decision = QADecision(
         **base,
         **identity,

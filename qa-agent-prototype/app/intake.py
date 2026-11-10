@@ -68,7 +68,48 @@ def load_handoff(
         reason = f"Test readiness is {handoff.readiness or 'missing'}, not READY_FOR_QA; QA does not start"
         return IntakeResult(handoff, digest, Verdict.BLOCKED, [reason], "Test Agent / implementer")
 
+    try:
+        validate_evidence(verification_path, handoff)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return IntakeResult(handoff, digest, Verdict.BLOCKED,
+                            [f"Test evidence integrity check failed: {_short(exc)}"], "Test Agent")
     return IntakeResult(handoff, digest)
+
+
+def validate_evidence(verification_path: Path, handoff: Handoff) -> None:
+    # The Test prototype places its manifest beside verification.json. Its URI
+    # is an API route, not an instruction to fetch an arbitrary local path.
+    root = verification_path.parent.resolve()
+    manifest_path = root / "evidence_manifest.json"
+    if manifest_path.is_symlink():
+        raise ValueError("Linked evidence manifest is not allowed")
+    raw = manifest_path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != handoff.artifact_manifest_hash:
+        raise ValueError("Artifact manifest checksum mismatch")
+    manifest = json.loads(raw)
+    if manifest["run_id"] != handoff.run_id or manifest["identity_hash"] != handoff.identity_hash:
+        raise ValueError("Manifest belongs to another Test run or identity")
+    identity = manifest["identity"]
+    pairs = {"repo": handoff.repo, "pr_number": handoff.pr_number, "base_sha": handoff.base_sha,
+             "pr_head_sha": handoff.reviewed_head_sha, "spec_hash": handoff.spec_hash,
+             "test_profile_hash": handoff.test_profile_hash,
+             "environment_fingerprint": handoff.environment_fingerprint, "policy_version": handoff.policy_version}
+    if any(identity.get(k) != v for k, v in pairs.items()):
+        raise ValueError("Manifest identity differs from verification")
+    canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    if hashlib.sha256(canonical).hexdigest() != handoff.identity_hash:
+        raise ValueError("Test identity checksum mismatch")
+    if not manifest["evidence"]:
+        raise ValueError("Manifest contains no evidence")
+    for entry in manifest["evidence"]:
+        relative = Path(entry["path"])
+        path = root / relative
+        if relative.is_absolute() or ".." in relative.parts or any(
+            (root.joinpath(*relative.parts[:i])).is_symlink() for i in range(1, len(relative.parts)+1)
+        ) or not path.resolve().is_relative_to(root):
+            raise ValueError("Evidence path escapes its artifact directory or uses a link")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]:
+            raise ValueError(f"Evidence checksum mismatch: {entry['path']}")
 
 
 def _short(exc: Exception) -> str:

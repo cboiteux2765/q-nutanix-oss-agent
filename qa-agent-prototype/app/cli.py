@@ -29,10 +29,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", required=True, type=Path, help="directory for qa_decision.json and qa_report.md")
     p.add_argument("--advisories", type=Path, help="advisory JSON feed (defaults to the bundled demo feed)")
     p.add_argument("--no-pilot", action="store_true", help="let agent approvals stand without human confirmation")
+    p.add_argument("--expected-spec-hash", help="current approved spec hash from the orchestrator")
+    p.add_argument("--expected-test-profile-hash", help="current test profile hash from the orchestrator")
     args = p.parse_args(argv)
 
     policy = Policy(pilot_mode=not args.no_pilot)
-    decision = review(args.repo, args.verification, args.head, args.out, policy, args.advisories)
+    decision = review(args.repo, args.verification, args.head, args.out, policy, args.advisories,
+                      args.expected_spec_hash, args.expected_test_profile_hash)
     print(f"{decision.verdict.value}  next: {decision.next_owner}")
     for reason in decision.reasons:
         print(f"  - {reason}")

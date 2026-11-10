@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import IntEnum, StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 QA_SCHEMA_VERSION = "1.0"
 POLICY_VERSION = "qa-policy-0.1"
@@ -94,6 +94,23 @@ class Handoff(Contract):
     artifact_manifest_uri: str
     readiness: str | None = None
     human_approval_required: bool | None = None
+    artifact_manifest_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    execution_status: str
+    tests: dict[str, int]
+    requirements: list[dict[str, Any]]
+    unresolved_findings: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_patch: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def ready_requires_evidence(self):
+        if self.readiness == "READY_FOR_QA":
+            if self.execution_status != "COMPLETED" or any(self.tests.get(k, 0) for k in ("failed", "errors")):
+                raise ValueError("READY_FOR_QA requires completed execution without failed tests or errors")
+            if not self.requirements or any(r.get("result") != "PASS" for r in self.requirements):
+                raise ValueError("READY_FOR_QA requires passing requirement evidence")
+            if self.unresolved_findings or self.candidate_patch:
+                raise ValueError("READY_FOR_QA cannot include unresolved findings or a candidate patch")
+        return self
 
 
 class Policy(Contract):
@@ -143,6 +160,7 @@ class QADecision(Contract):
     spec_hash: str | None = None
     test_run_id: str | None = None
     test_identity_hash: str | None = None
+    test_artifact_manifest_hash: str | None = None
     verification_sha256: str | None = None
     risk_tier: str | None = None
     risk_reasons: list[str] = Field(default_factory=list)

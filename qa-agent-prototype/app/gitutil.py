@@ -35,25 +35,28 @@ def resolve(repo: Path, ref: str) -> str:
 
 
 def changed_files(repo: Path, base: str, head: str) -> list[ChangedFile]:
-    out = _git(repo, "diff", "--name-status", "--no-renames", f"{base}..{head}")
+    out = _git(repo, "diff", "--name-status", "-z", "--no-renames", f"{base}..{head}")
     files = []
-    for line in out.splitlines():
-        if not line.strip():
-            continue
-        status, _, path = line.partition("\t")
-        files.append(ChangedFile(path=path.strip(), status=status.strip()[:1]))
+    tokens = out.rstrip("\0").split("\0") if out else []
+    for status, path in zip(tokens[::2], tokens[1::2]):
+        files.append(ChangedFile(path=path, status=status[:1]))
     return files
 
 
 def added_lines(repo: Path, base: str, head: str) -> dict[str, list[tuple[int, str]]]:
     """Map each changed file to the (line number, text) pairs the PR adds."""
-    out = _git(repo, "diff", "--unified=0", "--no-color", "--no-renames", f"{base}..{head}")
+    out = _git(repo, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-renames", f"{base}..{head}")
     result: dict[str, list[tuple[int, str]]] = {}
     current: str | None = None
     line_no = 0
     for raw in out.splitlines():
         if raw.startswith("+++ "):
             target = raw[4:]
+            if target.startswith('"'):
+                import json
+                target = json.loads(target)
+            else:
+                target = target.rstrip("\t")
             current = target[2:] if target.startswith("b/") else None
             if current is not None:
                 result.setdefault(current, [])

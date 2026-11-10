@@ -94,12 +94,23 @@ def write_verification(
         "readiness": readiness,
         "reasons": [],
         "tests": {"total": 2, "passed": 2, "failed": 0, "errors": 0, "skipped": 0},
-        "requirements": [],
+        "requirements": [{"id": "REQ-1", "result": "PASS", "test_ids": ["tests/test_util.py::test_add"]}],
         "unresolved_findings": [],
         "artifact_manifest_uri": f"artifacts/{run_id}/evidence_manifest.json",
+        "artifact_manifest_hash": _h("fixture-manifest"),
         "human_approval_required": True,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
+    identity = {key: data[key] for key in ("repo", "pr_number", "base_sha", "spec_hash",
+                "test_profile_hash", "environment_fingerprint", "policy_version")}
+    identity.update(pr_head_sha=head_sha, prompt_version="frozen-v1")
+    data["identity_hash"] = _h(json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+    evidence = path.parent / "test_report.md"
+    evidence.write_text("Synthetic QA fixture test evidence\n", encoding="utf-8")
+    manifest = json.dumps(dict(run_id=run_id, identity=identity, identity_hash=data["identity_hash"],
+                         evidence=[dict(path=evidence.name, sha256=hashlib.sha256(evidence.read_bytes()).hexdigest())]))
+    (path.parent / "evidence_manifest.json").write_text(manifest, encoding="utf-8")
+    data["artifact_manifest_hash"] = _h(manifest)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return path
 

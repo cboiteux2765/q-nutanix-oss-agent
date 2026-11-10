@@ -70,4 +70,4 @@ def test_pilot_off_lets_approval_stand(tmp_path):
     repo, verification, _ = demo.scenario_clean(tmp_path)
     decision = review(repo, verification, "pr", tmp_path / "qa", Policy(pilot_mode=False))
     assert decision.verdict == Verdict.APPROVED
-    assert not decision.human_confirmation_required
+    assert decision.human_confirmation_required  # upstream requires it even outside QA pilot

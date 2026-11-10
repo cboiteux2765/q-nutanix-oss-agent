@@ -13,7 +13,7 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python demo_acceptance.py          # 8 scenarios, prints PASS lines
-python -m pytest -q                # 74 tests
+python -m pytest -q                # 88 standalone tests; 90 with team prototypes alongside QA
 ```
 
 Each demo run writes a new folder under `demo-output/` with a fixture repo, a `verification.json`, and QA's `qa_report.md` + `qa_decision.json` for every scenario.
@@ -35,10 +35,10 @@ These match the "done" list in the QA PRD.
 
 ## Run it on the real Test Agent output
 
-The Test Agent prototype lives on the `feat/test-agent-prototype` branch. Run its demo, then point QA at the result:
+The Test Agent prototype currently lives on the `shanqin` branch. Run its demo, then point QA at the result:
 
 ```bash
-# in a checkout of feat/test-agent-prototype
+# in a checkout of shanqin
 cd test-agent-prototype && python demo_acceptance.py --output ../ta-demo
 
 # back in this folder
@@ -62,7 +62,15 @@ Result on the Test Agent's five scenarios (Oct 27, 2026):
 python -m app.cli --repo PATH/TO/REPO --verification PATH/TO/verification.json --head pr-branch --out qa-output
 ```
 
-Exit code: 0 APPROVED, 1 CHANGES_REQUESTED, 2 NEEDS_HUMAN, 3 BLOCKED, 4 STALE. `--advisories FILE` swaps in another advisory feed. `--no-pilot` lets agent approvals stand without a human confirming.
+Exit code: 0 APPROVED, 1 CHANGES_REQUESTED, 2 NEEDS_HUMAN, 3 BLOCKED, 4 STALE. `--advisories FILE` swaps in another advisory feed. `--no-pilot` disables QA's own pilot confirmation requirement, but preserves the Test Agent's human-approval requirement. APPROVED is a recommendation until any required human confirms.
+
+Keep `evidence_manifest.json` and its evidence files beside `verification.json`, as emitted by Test. QA checks manifest and evidence checksums, run identity, completed execution, and passing requirements. Checksums detect modification; they are not signed provenance. Use artifacts from a trusted Test run.
+
+The orchestrator can supply `--expected-spec-hash HASH` and `--expected-test-profile-hash HASH` to invalidate evidence after a spec or profile update. Without these, QA checks internal consistency and head freshness, but cannot independently discover upstream spec changes.
+
+## Team handoff integration
+
+See [INTEGRATION.md](INTEGRATION.md) for review and revision export commands, tested branch versions, and the remaining Spec-to-Coding gap. Exports prepare JSON requests; they do not submit HTTP requests, impersonate a human, merge code, or deploy.
 
 ## How a review runs
 
@@ -99,5 +107,6 @@ app/fixtures.py       local Git fixtures for the demo and tests
 app/cli.py            command line entry point
 demo_acceptance.py    8 end-to-end scenarios
 integrate_test_agent.py  runs QA over the Test Agent demo output
-tests/                74 unit and end-to-end tests
+app/handoff.py        export Test review and Coding revision requests
+tests/                unit, regression, and optional team integration tests
 ```
