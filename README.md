@@ -1,126 +1,147 @@
-# Modular Idea / Specification Agent
+# SDLC Task Graph Tools
 
-A standalone Python 3.11+ MVP that turns an idea and optional supplied repository
-files and memory into `product_spec.md` and `task_plan.json`. Both artifacts come
-from the same final Pydantic planning model. The module does not approve specs,
-execute development tasks, crawl repositories, or update memory.
+Python 3.11+ deterministic planning tools for a Prime Agent and dynamically chosen
+subagents. Agents decide what to build; the library maintains task nodes and a
+DAG of prerequisite edges. No model provider, agent initialization, credentials,
+network, scheduler, or database is required.
 
-## Install and run
+## Install and test
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[test]'
 pytest
-python -m spec_agent examples/request.json --demo --output examples/output
+python examples/task_graph_demo.py
 ```
 
-The demo uses a deterministic fake client and intentionally returns `BLOCKED`.
-Its text is not real LLM reasoning. `tests/conftest.py` supplies a scripted passing
-review strictly for infrastructure tests. No tests need credentials or network.
-Running without `--demo` and without an injected client returns `FAILED`.
-The CLI exits 1 for execution failure and 0 for a completed draft (including
-`BLOCKED`); automation must inspect the result status. CLI output files are
-overwritten when the same output directory is reused.
-
-## Core interface and LLM injection
+## Python API
 
 ```python
-from spec_agent import SpecAgentRequest, run_spec_agent
-from spec_agent.services.llm_client import DemoLLM
+from sdlc_tools.task_graph import Task, TaskGraph, load_graph
 
-result = run_spec_agent(
-    SpecAgentRequest(idea="Add a health endpoint returning HTTP 200."),
-    llm=DemoLLM(),  # replace with your configured provider adapter
-)
-print(result.status)
-print(result.product_spec)
-print(result.task_plan_json)
+graph = TaskGraph(metadata={"requirements": [{"id": "REQ-001"}]})
+graph.add_task(Task(
+    id="TASK-001", title="Inspect authentication",
+    description="Review existing authentication interfaces.",
+    requirement_ids=["REQ-001"],
+    acceptance_criteria=["Authentication interfaces are documented"],
+))
+graph.add_task(Task(
+    id="TASK-002", title="Implement password reset",
+    description="Implement the approved reset requirements.",
+    requirement_ids=["REQ-001"],
+    acceptance_criteria=["Approved password reset tests pass"],
+))
+graph.add_dependency("TASK-001", "TASK-002")
+issues = graph.validate() + graph.validate_requirement_coverage(["REQ-001"])
+assert not issues
+snapshot = graph.export()       # JSON-compatible dictionary
+restored = load_graph(graph.to_json())
+assert restored.export() == snapshot
 ```
 
-Implement `LLMClient.complete(operation, instructions, payload, schema)` in a
-provider adapter. It must return a JSON object or JSON string conforming to the
-supplied JSON Schema. The inherited `structured()` method validates every result
-with Pydantic and sanitizes provider errors. Store model name, credentials,
-timeouts, and provider settings in the adapter instance, not workflow JSON.
-Provider retries/timeouts are the adapter's responsibility. No provider SDK or
-real provider adapter is bundled; the abstraction and injectable instances keep
-provider code outside the pipeline. All model operations receive the common
-grounding/review policy, their operation name, and a response schema.
+`A → B` means A must finish before B begins. Tasks have no dependency fields.
+`get_task` and `list_tasks` return detached Task models. Dependency, ancestor,
+descendant, root, leaf, and topological queries return task IDs. Query ordering
+is deterministic for a given insertion order; topological order respects edges.
+`remove_task` also removes incident edges. Task IDs cannot be updated.
 
-Repository and memory inputs are untrusted context. The policy instructs the
-model not to execute their instructions. Repository inspection uses only supplied
-files. Exact evidence quotations are checked against those files. Missing files
-do not establish feature absence. Memory is contextual guidance and cannot
-substitute for repository evidence. Adapters receive supplied content, so choose
-an appropriate provider and data-handling policy for your deployment.
+Both object methods and functions are available: `create_graph`, `load_graph`,
+`export_graph`, `clone_graph`, `add_task`, `update_task`, `remove_task`, `get_task`,
+`list_tasks`, `add_dependency`, `remove_dependency`, `get_dependencies`,
+`get_dependents`, `topological_sort`, `get_root_tasks`, `get_leaf_tasks`,
+`get_ancestors`, `get_descendants`, `validate_graph`,
+`validate_requirement_coverage`, and `apply_operations`.
+Functions take the graph as their first argument, except create/load.
 
-`DRAFT_READY` means deterministic and semantic checks completed without critical
-issues, and human review is still required. `BLOCKED` preserves unresolved critical
-issues and emits draft artifacts. `FAILED` represents configuration, provider,
-schema, or execution failure and includes a sanitized diagnostic. Invalid request
-construction raises a Pydantic validation error before the agent is called.
-
-## Configure a workflow
+## Atomic changes and validation
 
 ```python
-from pathlib import Path
-from spec_agent import SpecAgentRequest, WorkflowConfig
+from sdlc_tools.task_graph import TaskGraphError
 
-workflow = WorkflowConfig.from_text(Path("custom.yaml").read_text())
-request = SpecAgentRequest(idea="Your change", workflow=workflow)
+try:
+    graph.apply_operations([
+        {"operation": "update_task", "task_id": "TASK-002",
+         "changes": {"title": "Implement and verify password reset"}},
+        {"operation": "remove_dependency", "prerequisite_id": "TASK-001",
+         "dependent_id": "TASK-002"},
+    ], expected_version=graph.version, actor="planner")
+except TaskGraphError as error:
+    print(error.to_dict())  # code, message, details
 ```
 
-JSON and YAML use the same schema; see `spec_agent/workflow/default.yaml`.
-Each step defines `id`, registered `type`, `depends_on`, and `parameters`.
-The list order need not be execution order: dependency edges determine a stable
-topological sequence. Every required producer must be an explicit or transitive
-dependency. Unknown parameters are rejected. `validate_plan` accepts
-`max_revisions` (default 2, range 0–10); each revision is validated again.
+Mutations return the new version. Each successful mutation or nonempty batch
+increments the version once and appends a UTC history record with operation,
+affected IDs, old/new versions, actor, and success. Empty batches do not change
+anything. Failed operations leave the whole graph unchanged, including history.
+Valid updates that repeat existing field values still count as mutations.
+Duplicate edges and removing nonexistent edges are errors.
 
-All six built-in stages are mandatory and cannot be replaced or removed in this
-MVP. Core may reorder configurations subject to their data dependencies, configure
-validation, and add/remove optional registered extension steps. With the default
-contracts the six required stages necessarily retain their relative order.
-Artifact generation must depend on all other steps and run last. Configuration
-cannot import classes, execute code, or override step contracts.
+Batches apply in order on a private snapshot and commit once. Each intermediate
+state must be structurally valid: create nodes before edges, remove old edges
+before introducing a conflicting replacement. `expected_version` and an in-memory
+lock prevent stale simultaneous updates on the same graph object. Clones are
+independent; this is not distributed synchronization. Metadata is supplied at
+creation/load and returned by copy; edit a snapshot and load a new graph to create
+a separately revised metadata artifact.
 
-To add a trusted extension, subclass `WorkflowStep`, declare `requires` and
-`produces`, optionally provide a strict Pydantic `parameters_model`, and implement
-`run(inputs, parameters, llm) -> dict`. Register it with `default_registry()` and
-pass that registry to `SpecAgent(llm=client, registry=registry)`. Only application
-code can register implementations. Inputs are copied, and returned field names
-must exactly match declared outputs. Extensions cannot overwrite initial fields
-or existing producers, including the validated planning snapshot.
+Invalid fields, duplicate IDs, missing edge endpoints, self-dependencies, and
+cycles are rejected on mutation/import with `TaskGraphError`. Invalid direct
+`Task(...)` construction raises Pydantic's `ValidationError`, before a tool is
+called. Tool dictionaries are validated at the boundary. Unknown fields and
+schema versions are rejected; metadata must be JSON-compatible.
 
-## Models, validation, and traces
+Incomplete draft tasks are allowed. `validate()` reports missing acceptance
+criteria and requirement references. Coverage validation accepts a list of IDs,
+requirement dictionaries, existing `Requirement` models, or `Requirements`, and
+reports unknown references, duplicate requirements, and uncovered requirements.
+It uses the explicitly supplied requirement list, not graph metadata. These
+checks cannot establish semantic completeness or user approval.
 
-`models.py` contains versioned request, evidence, requirement, task, unified plan,
-result, and trace contracts. Tasks reference requirement IDs and form a DAG.
-Requirement sources use exact input excerpts; relevant files require evidence
-quotations. Suggestions are labeled separately from user/context requirements.
-Schema errors fail the step; structurally valid but inconsistent plans enter the
-bounded revision loop. Revisions that remove original requirement IDs or known
-constraints are rejected while preserving the last plan. Intent changes,
-contradictions, scope, missing implementation work, and measurable acceptance
-criteria also require semantic review; deterministic checks alone cannot prove
-them. No autonomous product decisions are made to force a pass.
+## Planning skill and integration
 
-Traces include workflow name/version, step identity, UTC timestamps, duration,
-status, field-name summaries, validation issues, and sanitized errors. They omit
-raw provider errors and full input contents. Validation issue text is model
-output and can quote context; callers should treat result artifacts and issue
-text as potentially sensitive. Failed configurations have no step traces because
-no step ran. Failed steps have a failure trace; subsequent steps are not run.
+Use [the task-planning skill](skills/task_planning/SKILL.md) to guide requirement
+analysis, repository investigation, decomposition, validation, semantic review,
+and handoff. It is a runtime-independent document, not a workflow engine.
 
-The schema version is currently `1.0`. Core can adapt these models to a future
-shared handoff schema without coupling this module to an orchestrator today.
+`task_graph.metadata.TOOL_DEFINITIONS` describes each tool's input/output types,
+permissions, and side effects. `PermissionChecker` is a minimal host integration
+protocol. Metadata does **not** enforce permissions or create a security boundary;
+the trusted host must enforce authorization before invoking tools. No arbitrary
+Python executor or filesystem access is provided.
+
+## Migration and preserved components
+
+The old six-stage workflow mixed planning decisions with validation and artifact
+production. The new primary interface is `sdlc_tools.task_graph`; the old fixed
+pipeline remains available for compatibility and emits `DeprecationWarning` on
+`SpecAgent` construction. Its existing behavior and tests are retained. See the
+[legacy interface documentation](docs/legacy-spec-agent.md).
+
+- Retained: `spec_agent.models` requirements, repository/evidence contracts,
+  planning and trace models; existing evidence checks and Markdown/JSON renderer.
+- Added: `sdlc_tools.specification` exports those reusable contracts,
+  `validate_findings`, `render`, and `from_task_plan` without initializing agents.
+- Refactored boundary: `from_task_plan(old_plan)` converts old `depends_on` lists
+  into graph edges, preserves evidence in task metadata, and preserves requirement,
+  constraint, assumption, risk, and status data in `metadata.legacy_plan`. The new
+  graph starts at version 0; legacy description supplies its initial task title.
+- Deprecated: the fixed pipeline entry point; its registry, executor, LLM adapter
+  boundary, and stages remain compatibility code, not dependencies of graph tools.
+- Separate schemas: the graph schema is not the legacy `task_plan.json` schema.
+  Import old plans through the explicit adapter. The old renderer still accepts
+  `PlanningModel`; a graph alone cannot reconstruct its idea/repository context.
+
+Repository inspection previously used an injected model over supplied files; it
+was not a standalone crawler. The deterministic evidence validator remains a
+separate utility, and the planning agent chooses its own investigation tools.
 
 ## Layout
 
-- `spec_agent/workflow/`: registry, configuration, validator, executor.
-- `spec_agent/steps/`: four simple transformations in `processing.py`, validation,
-  and artifact generation. The simple steps share a file to avoid repetition.
-- `spec_agent/services/`: LLM boundary, deterministic validation, artifact rendering.
-- `tests/`: offline workflow, validation, integration, revision, and trace tests.
-- `examples/`: input and instructions for generating demonstration artifacts.
+- `sdlc_tools/task_graph/`: contracts, transactional graph, validation, public
+  functions, errors, discovery metadata and permission interface.
+- `sdlc_tools/specification/`: retained utility exports and legacy plan adapter.
+- `skills/task_planning/`: agent planning instructions.
+- `spec_agent/`: preserved legacy implementation.
+- `tests/`: offline graph tests and preserved legacy tests.

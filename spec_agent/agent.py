@@ -1,4 +1,5 @@
 from importlib.resources import files
+import warnings
 
 from spec_agent.models import SpecAgentRequest, SpecAgentResult, TaskPlan, WorkflowConfig
 from spec_agent.services.llm_client import LLMClient, UnconfiguredLLM
@@ -13,6 +14,8 @@ def default_workflow() -> WorkflowConfig:
 
 class SpecAgent:
     def __init__(self, llm: LLMClient | None = None, registry=None):
+        warnings.warn("The fixed SpecAgent pipeline is deprecated; use sdlc_tools.task_graph and the task-planning skill.",
+                      DeprecationWarning, stacklevel=2)
         self.llm = llm if llm is not None else UnconfiguredLLM()
         self.registry = registry if registry is not None else default_registry()
 

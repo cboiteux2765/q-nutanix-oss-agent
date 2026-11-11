@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "modular-spec-agent"
 version = "0.1.0"
-description = "Configurable idea-to-specification pipeline"
+description = "Deterministic task graph tools and reusable specification utilities"
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.7,<3", "PyYAML>=6,<7"]
 
@@ -16,7 +16,7 @@ test = ["pytest>=8,<10"]
 spec-agent = "spec_agent.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["spec_agent*"]
+include = ["spec_agent*", "sdlc_tools*"]
 
 [tool.setuptools.package-data]
 spec_agent = ["workflow/*.yaml"]
