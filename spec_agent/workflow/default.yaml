@@ -1,0 +1,22 @@
+name: default-spec-agent
+version: '1.0'
+steps:
+  - id: analyze
+    type: analyze_idea
+  - id: inspect
+    type: inspect_repository
+    depends_on: [analyze]
+  - id: requirements
+    type: generate_requirements
+    depends_on: [inspect]
+  - id: tasks
+    type: generate_tasks
+    depends_on: [requirements]
+  - id: validate
+    type: validate_plan
+    depends_on: [tasks]
+    parameters:
+      max_revisions: 2
+  - id: artifacts
+    type: generate_artifacts
+    depends_on: [validate]

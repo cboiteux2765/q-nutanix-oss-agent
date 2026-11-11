@@ -1,0 +1,5 @@
+{
+  "idea": "Add a health endpoint that returns HTTP 200 and the JSON object {\"status\": \"ok\"}.",
+  "repository_files": [],
+  "memory": []
+}
