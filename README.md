@@ -8,7 +8,9 @@ UCSB CMPSC 189A, Fall 2026 · Sponsored by Nutanix
 
 ## Demo
 
-[![EVO demo: one main agent, a team that checks its work](docs/evo-demo-poster.jpg)](docs/evo-demo.mp4)
+https://github.com/user-attachments/assets/7e693055-7d61-4603-9232-5e06c9e0200f
+
+
 
 *A real 47-minute run on pytest issue #14442, edited to 2½ minutes. Click to watch.*
 
