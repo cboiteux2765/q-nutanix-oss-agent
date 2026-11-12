@@ -71,3 +71,11 @@ structural checks pass, product context and quoted evidence are present, assesse
 is low, and there are no assumptions or unresolved decisions; otherwise they report
 NEEDS_REVIEW with reasons. Replay runs never auto-clear. AUTO_CLEARED is not human
 APPROVED and does not establish factual correctness. Hash checks invalidate changed artifacts.
+
+**Product Spec Learning Lab.** Specialist agents, prompt versions, scenario comparisons,
+human feedback, promotion and rollback. Specialists share four read-only tools (pinned
+evidence search, feedback memory, unresolved decisions, requirement-to-test tracing)
+through one bounded JSON tool protocol that works with Ollama and Prime RLM
+spawn/collect. Learning changes reviewed prompts, not model weights. Run
+`.venv/Scripts/python.exe -m agent.learning_server` (add `--live` for Ollama). See the
+[learning workflow guide](docs/LEARNING_WORKFLOW.md).
