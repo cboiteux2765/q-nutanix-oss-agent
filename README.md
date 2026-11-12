@@ -12,6 +12,33 @@ The current prototype collects selected repository evidence, drafts requirements
 
 ## Interactive demo
 
+From the repository folder, launch the local interface:
+
+```powershell
+python run.py
+```
+
+This opens http://127.0.0.1:8765 in your browser. Keep the terminal open;
+press **Ctrl+C** to stop. Demo mode needs only Python, with no package installation
+or API keys. Runs and feedback are saved in `runs/learning-demo`.
+If Python is not on PATH, use `.venv/Scripts/python.exe run.py`.
+
+Use `python run.py --no-browser` to open the URL yourself, or `--port 8766`
+to choose another port. For an already configured Ollama model, run
+`python run.py --live --model qwen2.5:7b` and upload your evidence snapshot.
+
+The EVO interface now includes a **Product Spec Learning Lab**: specialist agents,
+prompt versions, scenario comparisons, human feedback, promotion, and rollback.
+Its product specialists share four read-only tools: pinned evidence search,
+feedback memory, unresolved decisions, and requirement-to-test tracing. The same
+bounded JSON tool protocol works with Ollama and Prime RLM spawn/collect. Inspect
+tool results under **Details > Specialists and tools**. Learning changes reviewed prompts,
+not model weights; the core learning workflow uses only Python's standard library.
+Run `.venv/Scripts/python.exe -m agent.learning_server` for the local recorded demo,
+or add `--live` for Ollama inference with your evidence snapshot. See the
+[learning workflow guide](docs/LEARNING_WORKFLOW.md) for the full loop and Prime
+Agent RLM adapter. The hosted Site remains a labeled browser demo.
+
 The private demo Site shows a complete, repeatable Product Spec Agent run: issue
 intake, repository research, product analysis, drafting, independent validation,
 targeted correction, automatic handoff clearance, Markdown preview/download, and
