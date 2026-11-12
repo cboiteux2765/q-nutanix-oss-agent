@@ -7,7 +7,10 @@ name = "evo-test-agent-prototype"
 version = "0.1.0"
 description = "Bounded verification and human QA evidence for EVO Phase 04"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115,<1", "pydantic>=2.10,<3", "uvicorn>=0.30,<1", "pytest>=8,<10", "httpx>=0.27,<1"]
+dependencies = ["pydantic>=2.10,<3", "pytest>=8,<10", "mcp>=2,<3"]
+
+[project.scripts]
+evo-test-tools = "app.prime_mcp:main"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
@@ -16,3 +19,9 @@ include = ["app*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated:DeprecationWarning"]
+
+[project.optional-dependencies]
+dev = ["coverage>=7,<8", "fastapi>=0.115,<1", "httpx>=0.27,<1"]
+qa = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+# Compatibility alias for previous installation instructions; MCP is now core.
+prime = ["mcp>=2,<3"]

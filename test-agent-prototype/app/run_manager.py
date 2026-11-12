@@ -1,4 +1,4 @@
-"""Single-process orchestration with immutable input identities and bounded work."""
+"""Single-process verification lifecycle, budgets and evidence; no agent orchestration."""
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +23,7 @@ from .providers import SourceRegistry, git, tree_hash
 from .preflight import preflight, prepare_workspace
 from .test_runner import execute as run_pytest, requirement_results, redact_log
 from .rca_and_repair import (classify_failure, FixtureRepairAdapter, PatchPolicyError, validate_patch,
-    materialize_candidate, NullPMNotificationAdapter)
+    materialize_candidate)
 from .evolution_memory import EvolutionMemory
 
 TERMINAL = {Status.COMPLETED, Status.BLOCKED, Status.CANCELLED, Status.ERROR}
@@ -107,16 +107,14 @@ class RunState:
 
 class RunManager:
     def __init__(self, storage: Path, registry: SourceRegistry | None = None,
-                 repair_adapter: Any = None, notifier: Any = None):
+                 repair_adapter: Any = None):
         self.storage = Path(storage).resolve()
         self.storage.mkdir(parents=True, exist_ok=True)
         self.registry = registry or SourceRegistry(self.storage / "sources")
-        self.repair_adapter = repair_adapter or FixtureRepairAdapter()
-        self.notifier = notifier or NullPMNotificationAdapter()
+        self.repair_adapter = repair_adapter
         self.memory = EvolutionMemory(self.storage / "evolution")
         self.runs: dict[str, RunState] = {}
         self.idempotency: dict[str, dict[str, str]] = {}
-        self.delivery_runs: dict[str, str] = {}
         self._executing: set[str] = set()
         self._load()
 
@@ -133,7 +131,7 @@ class RunManager:
             return
         data = json.loads(path.read_text(encoding="utf-8"))
         self.idempotency = data["idempotency"]
-        self.delivery_runs = data["delivery_runs"]
+        # Old stores may contain delivery_runs; GitHub intake now belongs to Prime.
         interrupted = []
         for key, item in data["runs"].items():
             result = Verification.model_validate(item["result"])
@@ -151,7 +149,7 @@ class RunManager:
 
     def persist(self) -> None:
         write_json(self.storage / "state.json", dict(
-            idempotency=self.idempotency, delivery_runs=self.delivery_runs,
+            idempotency=self.idempotency,
             runs={key: dict(request=v.request.model_dump(mode="json"),
                 context=v.context.model_dump(mode="json"), result=v.result.model_dump(mode="json"),
                 actor=v.actor, executions=v.executions) for key, v in self.runs.items()}))
@@ -249,15 +247,37 @@ class RunManager:
 
     def _archive_envelope(self, state: RunState, label: str) -> None:
         directory = self._directory(state)
+        archive_directory = directory / "audit" / label
+        if archive_directory.exists():
+            archive_directory = directory / "audit" / f"{label}-{uuid4().hex}"
         for name in ("verification.json", "test_report.md", "evidence_manifest.json"):
             path = directory / name
             if path.is_file() and not path.is_symlink():
-                archive = directory / "audit" / label / name
+                archive = archive_directory / name
                 archive.parent.mkdir(parents=True, exist_ok=True)
                 archive.write_bytes(path.read_bytes())
 
     def _publish(self, state: RunState) -> None:
         result, directory = state.result, self._directory(state)
+        # Completed executions, published patches and audit records are immutable.
+        # Only the current report and unfinished execution files may be refreshed.
+        # Keep missing entries too, so serving/QA still detects lost evidence.
+        recorded_evidence = {}
+        if result.artifact_manifest_hash:
+            manifest_path = directory / "evidence_manifest.json"
+            if manifest_path.is_symlink():
+                raise ValueError("Linked manifest is not an evidence artifact")
+            raw = manifest_path.read_bytes()
+            if sha256(raw).hexdigest() != result.artifact_manifest_hash:
+                raise ValueError("Artifact manifest integrity mismatch")
+            previous = json.loads(raw)
+            finished = {item["label"] for item in previous["executions"]}
+            recorded_evidence = {
+                item["path"]: item for item in previous["evidence"]
+                if item["path"] != "test_report.md" and (
+                    "/" not in item["path"]
+                    or item["path"].split("/", 1)[0] in finished | {"audit"})
+            }
         if state.budget:
             budget = state.budget
             result.metrics.debug_iterations = budget.debug_iterations
@@ -284,15 +304,16 @@ class RunManager:
                    "Human QA review of this exact version." if result.readiness == Readiness.READY_FOR_QA else
                    "NEEDS_ENGINEER or the named blocker owner. No merge/deploy is performed."]
         (directory / "test_report.md").write_text(redact_log("\n".join(report) + "\n"), encoding="utf-8")
-        entries = []
+        entries = dict(recorded_evidence)
         for path in sorted(directory.rglob("*")):
             if not path.is_file() or (path.parent == directory and path.name in {"verification.json", "evidence_manifest.json"}) or path.suffix == ".tmp":
                 continue
             name = path.relative_to(directory).as_posix()
-            entries.append(dict(id=name, path=name, sha256=sha256(path.read_bytes()).hexdigest(),
-                size=path.stat().st_size, uri=f"/v1/test-runs/{result.run_id}/artifacts/{name}"))
+            if name not in entries:
+                entries[name] = dict(id=name, path=name, sha256=sha256(path.read_bytes()).hexdigest(),
+                    size=path.stat().st_size, uri=f"/v1/test-runs/{result.run_id}/artifacts/{name}")
         manifest = dict(schema_version="1.0", run_id=result.run_id, identity=state.context.identity,
-            identity_hash=state.context.identity_hash, evidence=entries, executions=state.executions,
+            identity_hash=state.context.identity_hash, evidence=[entries[name] for name in sorted(entries)], executions=state.executions,
             workflow_id=f"local:{result.run_id}", job_id="local-worker",
             reproduction="Use the registered immutable snapshot and test profile with the recorded commands.",
             retention="Local operator-managed storage; no external upload.",
@@ -383,10 +404,14 @@ class RunManager:
                 result.readiness = Readiness.INCONCLUSIVE
                 return
             baseline = await self._test(state, state.context.base_snapshot_root, "base")
+            if baseline.cancelled or state.cancel_event.is_set():
+                raise asyncio.CancelledError
             root = classify_failure(state.context, head, baseline)
             if root.failure_class == FailureClass.UNKNOWN and state.budget.test_executions < state.request.max_test_executions:
                 # A single same-head rerun is diagnostic only; it never erases failure.
                 rerun = await self._test(state, state.context.snapshot_root, "diagnostic-rerun")
+                if rerun.cancelled or state.cancel_event.is_set():
+                    raise asyncio.CancelledError
                 root = classify_failure(state.context, head, baseline, rerun)
             result.unresolved_findings.append(root)
             self._transition(state, Status.REPAIRING)
@@ -422,18 +447,14 @@ class RunManager:
             self._publish(state)
             try:
                 self.memory.append_run(result)
-                for finding in result.unresolved_findings:
-                    try:
-                        self.notifier.notify(run_id, finding.owner_role, finding.model_dump(mode="json"))
-                    except Exception as error:
-                        # Notification delivery never authorizes retries or changes an observed verdict.
-                        result.reasons.append(redact_log(f"PM notification failed: {type(error).__name__}"))
-                        self._publish(state)
             finally:
                 self._executing.discard(run_id)
 
     async def _repair(self, state: RunState, head, root: RootCause) -> None:
         result, budget = state.result, state.budget
+        if self.repair_adapter is None:
+            result.reasons.append("NEEDS_ENGINEER: return the regression evidence to the Harness-managed Code stage")
+            return
         while True:
             if state.cancel_event.is_set():
                 raise asyncio.CancelledError
@@ -559,8 +580,16 @@ class RunManager:
             return path
         manifest = self.artifacts(run_id)
         match = next((e for e in manifest["evidence"] if e["path"] == name), None)
-        path = (directory / name).resolve()
-        if not match or not path.is_relative_to(directory.resolve()) or path.is_symlink():
+        requested = directory / name
+        if not match or not requested.is_relative_to(directory):
+            raise KeyError("Artifact not found")
+        for ancestor in (requested, *requested.parents):
+            if ancestor == directory:
+                break
+            if ancestor.is_symlink() or (hasattr(ancestor, "is_junction") and ancestor.is_junction()):
+                raise ValueError("Linked evidence artifact is not allowed")
+        path = requested.resolve()
+        if not path.is_relative_to(directory.resolve()):
             raise KeyError("Artifact not found")
         if not path.is_file() or sha256(path.read_bytes()).hexdigest() != match["sha256"]:
             raise ValueError("Evidence checksum mismatch")

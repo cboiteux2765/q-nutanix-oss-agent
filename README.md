@@ -6,6 +6,8 @@ UCSB CMPSC 189A, Fall 2026 · Sponsored by Nutanix
 
 Q* is developing an AI agent to help open-source maintainers triage issues, organize work, and investigate stalled pull requests. The agent is intended to improve through evaluated updates to its memory, tools, and workflows without retraining its base language model. Our proposed first milestone is an issue-triage prototype, with repository selection and success criteria to be agreed with our Nutanix mentors.
 
+The Test stage uses the [Prime Agent MCP tool interface](test-agent-prototype/docs/prime_test_tools.md) for pinned preflight, bounded verification and checksum-verified evidence. Prime Agent manages sessions, intake and scheduling; the tools enforce operator-configured repository, backend and budget scope. The former standalone Test Agent intake and webhook queue have been removed; human QA remains separate.
+
 ## Team
 
 - Clement Boiteux — Team Lead

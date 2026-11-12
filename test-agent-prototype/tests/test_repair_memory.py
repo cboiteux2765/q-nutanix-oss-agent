@@ -9,7 +9,7 @@ from app.evolution_memory import EvolutionMemory, redact
 from app.models import (AcceptanceTest, EnvironmentManifest, FailureClass, Prerequisite, Requirement,
                         ResolvedContext, SpecDocument, TestCase, TestExecution, TestProfile)
 from app.rca_and_repair import (AdapterNotConfigured, CandidatePatchProposal, FixtureRepairAdapter,
-                                NullPMNotificationAdapter, PatchPolicyError, RepairAdapter,
+                                PatchPolicyError, RepairAdapter,
                                 UnconfiguredRepairAdapter, classify_failure, materialize_candidate, validate_patch)
 
 
@@ -75,6 +75,16 @@ def test_fail_then_pass_is_flaky_and_retains_both_outcomes(context):
 def test_passing_different_suite_is_not_flaky_evidence(context):
     rca = classify_failure(context, execution(), rerun=execution("PASS", node="tests/other.py::test_other"))
     assert rca.failure_class == FailureClass.UNKNOWN
+
+
+@pytest.mark.parametrize("blocked", ["head", "base", "rerun"])
+def test_blocked_observations_cannot_establish_regression_or_flakiness(context, blocked):
+    head = execution()
+    base = execution("PASS") if blocked != "rerun" else None
+    rerun = execution("PASS") if blocked == "rerun" else None
+    observation = {"head": head, "base": base, "rerun": rerun}[blocked]
+    observation.blocked_reason = "Test log exceeded the evidence capture limit."
+    assert classify_failure(context, head, base, rerun).failure_class == FailureClass.UNKNOWN
 
 
 def test_preflight_spec_and_environment_blockers_prevent_regression_patch(context):
@@ -145,12 +155,9 @@ def test_fixture_adapter_never_fixes_non_regression_and_has_no_verdict(context):
     assert adapter.propose(context, execution(), regression, attempt=2) is None
 
 
-def test_unconfigured_adapter_and_pm_fallback_need_no_network(context):
+def test_unconfigured_adapter_fails_closed_without_a_model_provider(context):
     with pytest.raises(AdapterNotConfigured, match="No live repair provider"):
         UnconfiguredRepairAdapter().propose(context, execution())
-    notifier = NullPMNotificationAdapter()
-    notifier.notify("run-1", "engineer", {"action": "NEEDS_ENGINEER"})
-    assert notifier.notifications == [{"run_id": "run-1", "owner_role": "engineer", "finding": {"action": "NEEDS_ENGINEER"}}]
 
 
 def test_memory_redacts_traces_and_keeps_pinned_source_and_config(tmp_path):

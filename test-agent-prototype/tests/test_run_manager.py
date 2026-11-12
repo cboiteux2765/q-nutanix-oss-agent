@@ -172,6 +172,61 @@ def test_named_qa_rejection_revokes_readiness_and_cannot_be_overridden(tmp_path)
             "artifact_manifest_hash": rejected.artifact_manifest_hash}), QA)
 
 
+@pytest.mark.parametrize("damage", ["replace", "delete"])
+@pytest.mark.parametrize("name", ["initial/pytest.log", "candidate.patch"])
+def test_stale_publication_does_not_reauthorize_damaged_execution_evidence(tmp_path, damage, name):
+    from app.providers import GOOD_SOURCE
+    manager, registration, run_id = system(tmp_path, regression=name == "candidate.patch",
+        adapter=FixtureRepairAdapter(changes={"src/service.py": GOOD_SOURCE}))
+    asyncio.run(manager.execute(run_id))
+    original = next(e for e in manager.artifacts(run_id)["evidence"] if e["path"] == name)
+    path = manager.artifact_path(run_id, name)
+    if damage == "replace":
+        path.write_text("Altered after verification", encoding="utf-8")
+    else:
+        path.unlink()
+    manager.registry.register(registration.model_copy(update={"policy_version": "pilot-v2"}))
+    assert manager.get_run(run_id).readiness == Readiness.STALE
+    current = next(e for e in manager.artifacts(run_id)["evidence"] if e["path"] == name)
+    assert current["sha256"] == original["sha256"]
+    with pytest.raises(ValueError, match="checksum"):
+        manager.artifact_path(run_id, name)
+
+
+def test_repeated_qa_rejection_preserves_prior_audit_envelopes(tmp_path):
+    manager, _, run_id = system(tmp_path)
+    asyncio.run(manager.execute(run_id))
+    before = manager.get_run(run_id)
+    for _ in range(2):
+        current = manager.get_run(run_id)
+        manager.review_run(run_id, ReviewRequest(decision="REJECTED",
+            identity_hash=current.identity_hash, artifact_manifest_hash=current.artifact_manifest_hash), QA)
+    import json
+    archived = manager.artifact_path(run_id, "audit/before-qa-rejection/verification.json")
+    assert json.loads(archived.read_text(encoding="utf-8")) == before.model_dump(mode="json")
+    for entry in manager.artifacts(run_id)["evidence"]:
+        manager.artifact_path(run_id, entry["path"])
+
+
+@pytest.mark.parametrize("stage", ["base", "diagnostic-rerun"])
+def test_cancellation_of_last_diagnostic_execution_is_cancelled(tmp_path, monkeypatch, stage):
+    from app.models import TestCase, TestExecution
+    manager, _, run_id = system(tmp_path, regression=True,
+        request_updates={"max_test_executions": 2 if stage == "base" else 3})
+
+    async def runner(context, workspace, evidence, cancel_event, timeout):
+        return TestExecution(exit_code=1, failed=1, cancelled=evidence.name == stage,
+            cases=[TestCase(node_id="tests/test_service.py::test_empty", outcome="failed",
+                            evidence_id=f"{evidence.name}/junit.xml")])
+
+    monkeypatch.setattr("app.run_manager.run_pytest", runner)
+    asyncio.run(manager.execute(run_id))
+    result = manager.get_run(run_id)
+    assert result.execution_status == ExecutionStatus.CANCELLED
+    assert result.readiness == Readiness.INCONCLUSIVE
+    assert result.metrics.debug_iterations == 0 and result.candidate_patch is None
+
+
 @pytest.mark.parametrize("changed_input", ["spec", "profile", "environment", "policy_version"])
 def test_relevant_registered_input_change_invalidates_verified_evidence(tmp_path, changed_input):
     manager, registration, run_id = system(tmp_path)

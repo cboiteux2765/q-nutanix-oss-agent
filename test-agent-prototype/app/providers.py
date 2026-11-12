@@ -1,7 +1,7 @@
 """Trusted local Git mirror/PR registry. No network or repository discovery.
 
 Operators register immutable approved specifications and trusted test profiles.
-Webhook payloads cannot add repositories, commands, snapshots, or credentials.
+Tool arguments cannot add repositories, commands, snapshots, or credentials.
 """
 from __future__ import annotations
 

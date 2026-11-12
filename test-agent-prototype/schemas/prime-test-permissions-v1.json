@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "server": "evo-test",
+  "transport": "stdio",
+  "orchestration_owner": "prime_harness",
+  "http_api": "optional human QA and evidence only; no task intake",
+  "identity_source": "operator-owned policy loaded by the separate MCP process; never an MCP argument",
+  "host_verified_per_request": false,
+  "repository_scope": "operator-owned allowlist of already registered local Git mirrors",
+  "read_access": [
+    "registered local Git base and PR head commits",
+    "registered approved specification and fixed test profile",
+    "the authorized run's checksummed evidence manifest and allowlisted UTF-8 artifacts"
+  ],
+  "write_access": [
+    "operator-configured RunManager data directory: immutable snapshots, disposable workspaces, run state and evidence"
+  ],
+  "execution": {
+    "default_allowed_backends": ["docker"],
+    "docker_network": "none",
+    "docker_image": "operator-pinned SHA-256 digest; no image pulls",
+    "local_trusted": "operator opt-in for reviewed fixtures only; host execution is not network-isolated",
+    "budgets": "Pydantic request ceilings intersect with the stricter operator policy",
+    "model_repair": "no provider by default; explicit operator injection and budget required"
+  },
+  "tool_access": {
+    "test_preflight": ["registered input reads", "snapshot preparation", "prerequisite inspection"],
+    "test_verify": ["registered input reads", "bounded pytest execution", "run-store writes"],
+    "test_manifest": ["authorized run metadata", "checksummed evidence manifest"],
+    "test_artifact": ["manifest-allowlisted UTF-8 evidence up to the operator byte cap"]
+  },
+  "forbidden_actions": [
+    "unregistered repository or model-selected repository path",
+    "model-supplied role, approval, test command, runner backend or policy",
+    "GitHub write, merge, deployment or automatic QA approval",
+    "untrusted host execution, external network access from the Docker runner",
+    "artifact path traversal or access outside the manifest"
+  ],
+  "deployment_requirement": "Run the MCP process with operator-controlled policy and data ACLs separate from the model-writable Prime Python kernel. Prime's kernel is not a security sandbox."
+}

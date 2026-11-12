@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from app.models import Principal, Readiness, ReviewRequest, FeedbackRequest, Verification
 from app.providers import SourceRegistry, make_demo_repository, GOOD_SOURCE, BAD_SOURCE, git
+from app.prime_tools import StageTarget, TestStageTools, ToolBudget, ToolPolicy, VerifyInput
 from app.rca_and_repair import FixtureRepairAdapter, CandidatePatchProposal
 from app.run_manager import RunManager
 
@@ -30,15 +31,27 @@ def configured(root: Path, **fixture):
 
 async def verify(manager, trigger="demo"):
     request = manager.registry.request_for_pr("org/service", 42)
-    run, reused = manager.create_run(request, ENGINEER, trigger_identity=trigger)
-    assert not reused
-    await manager.execute(run.run_id)
+    context = manager.registry.resolve(request)
+    target = StageTarget(repo=request.repo, pr_number=request.pr_number,
+        expected_base_sha=context.base_sha, expected_head_sha=context.head_sha,
+        spec_id=request.spec_id, spec_hash=request.spec_hash,
+        test_profile_id=request.test_profile_id, test_profile_hash=context.profile.fingerprint,
+        environment_manifest_id=request.environment_manifest_id,
+        environment_fingerprint=context.environment.fingerprint,
+        policy_version=context.policy_version, correlation_id=trigger)
+    # Trusted fixture policy only; the normal tool policy disables repair.
+    tools = TestStageTools(manager, ENGINEER, ToolPolicy(operator_name=ENGINEER.name,
+        allowed_repos=(request.repo,), allowed_backends=("local_trusted",),
+        max_debug_iterations=2))
+    tools.preflight_pr(target)
+    run = await tools.verify_pr(VerifyInput.model_validate({**target.model_dump(mode="json"),
+        "budget": ToolBudget(max_debug_iterations=2).model_dump(mode="json")}))
     result = manager.get_run(run.run_id)
     Verification.model_validate_json(manager.artifact_path(run.run_id, "verification.json").read_text())
-    manifest = manager.artifacts(run.run_id)
-    for entry in manifest["evidence"]:
-        artifact = manager.artifact_path(run.run_id, entry["path"])
-        assert sha256(artifact.read_bytes()).hexdigest() == entry["sha256"]
+    manifest = tools.manifest(run.run_id).manifest
+    for entry in manifest.evidence:
+        artifact = tools.artifact(run.run_id, entry.path)
+        assert sha256(artifact.content_utf8.encode("utf-8")).hexdigest() == entry.sha256
     return result
 
 
@@ -90,7 +103,7 @@ async def run_acceptance(output: Path):
     assert blocked.metrics.debug_iterations == blocked.metrics.test_executions == 0
     results.append({"scenario": 4, "name": "Ambiguous specification", "run_id": blocked.run_id, "passed": True})
 
-    # 5: Signed duplicate webhook; two failed repairs; late commit invalidates ready.
+    # 5: Harness retry reuses a run; two failed repairs; late commit stales ready.
     manager, _ = configured(output / "05-budget", regression=True)
     manager.repair_adapter = FixtureRepairAdapter(proposals=[
         CandidatePatchProposal({"src/service.py": BAD_SOURCE + "\n# failed candidate one\n"}, "Attempt one"),
@@ -99,24 +112,11 @@ async def run_acceptance(output: Path):
     assert exhausted.metrics.debug_iterations == 2 and exhausted.metrics.test_executions == 4
     assert exhausted.readiness == Readiness.CHANGES_REQUIRED and exhausted.candidate_patch is None
     assert any("NEEDS_ENGINEER" in reason for reason in exhausted.reasons)
-    # Exercise the real webhook API (ASGI in-process), not a mock ledger.
-    import httpx, hashlib, hmac
-    from app.main import create_app
-    app = create_app(manager, tokens={"engineer-token": ENGINEER, "qa-token": QA},
-                     webhook_secret="offline-demo-secret", webhook_senders={"demo-engineer"})
-    payload = dict(action="labeled", repository={"full_name": "org/service"},
-                   sender={"login": "demo-engineer"}, pull_request={"number": 42}, label={"name": "test:verify"})
-    raw = json.dumps(payload).encode()
-    headers = {"X-Hub-Signature-256": "sha256=" + hmac.new(b"offline-demo-secret", raw, hashlib.sha256).hexdigest(),
-               "X-GitHub-Delivery": "offline-delivery-1", "X-GitHub-Event": "pull_request"}
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://offline") as client:
-        first = await client.post("/github/webhook", content=raw, headers=headers)
-        second = await client.post("/github/webhook", content=raw, headers=headers)
-        assert first.status_code == second.status_code == 202, (first.text, second.text)
-        assert first.json()["run_id"] == second.json()["run_id"] and second.json()["reused"]
-        task = app.state.tasks.get(first.json()["run_id"])
-        if task:
-            await task
+    # The same correlation/version/budget is a retry, not another execution.
+    before = len(manager.runs)
+    retried = await verify(manager)
+    assert retried.run_id == exhausted.run_id and len(manager.runs) == before
+    assert retried.metrics.test_executions == 4
     ready_manager, repo = configured(output / "05-stale")
     old = await verify(ready_manager)
     (repo / "src" / "service.py").write_text(GOOD_SOURCE + "\n# New unverified commit\n", encoding="utf-8")
@@ -129,10 +129,11 @@ async def run_acceptance(output: Path):
         pass
     else:
         raise AssertionError("Stale QA approval must be rejected")
-    results.append({"scenario": 5, "name": "Budget exhaustion, duplicate webhook, stale invalidation",
+    results.append({"scenario": 5, "name": "Budget exhaustion, idempotent tool retry, stale invalidation",
                     "run_id": exhausted.run_id, "stale_run_id": old.run_id, "passed": True})
     summary = dict(schema_version="1.0", passed=len(results), scenarios=results,
-        external_network_used=False, model_calls=0, evidence="Real local Git commits and pytest subprocesses",
+        external_network_used=False, model_calls=0,
+        evidence="TestStageTools preflight/verification/evidence over real Git and pytest",
         limitation="Fixture patch proposals are deterministic; live model/GitHub publication and Docker are not exercised.")
     (output / "acceptance_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     for item in results:

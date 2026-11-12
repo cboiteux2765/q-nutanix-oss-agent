@@ -1,0 +1,1180 @@
+{
+  "schema_version": "1.0",
+  "operator_policy": {
+    "additionalProperties": false,
+    "description": "An operator-owned capability set, loaded before MCP accepts requests.",
+    "properties": {
+      "schema_version": {
+        "const": "1.0",
+        "default": "1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "operator_name": {
+        "maxLength": 100,
+        "minLength": 1,
+        "title": "Operator Name",
+        "type": "string"
+      },
+      "allowed_repos": {
+        "items": {
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "minItems": 1,
+        "title": "Allowed Repos",
+        "type": "array"
+      },
+      "allowed_backends": {
+        "default": [
+          "docker"
+        ],
+        "items": {
+          "enum": [
+            "docker",
+            "local_trusted"
+          ],
+          "type": "string"
+        },
+        "title": "Allowed Backends",
+        "type": "array"
+      },
+      "max_runtime_seconds": {
+        "default": 1200,
+        "maximum": 1200,
+        "minimum": 1,
+        "title": "Max Runtime Seconds",
+        "type": "integer"
+      },
+      "max_test_executions": {
+        "default": 4,
+        "maximum": 4,
+        "minimum": 1,
+        "title": "Max Test Executions",
+        "type": "integer"
+      },
+      "max_debug_iterations": {
+        "default": 0,
+        "maximum": 2,
+        "minimum": 0,
+        "title": "Max Debug Iterations",
+        "type": "integer"
+      },
+      "max_model_spend_usd": {
+        "default": 0.0,
+        "maximum": 2.0,
+        "minimum": 0,
+        "title": "Max Model Spend Usd",
+        "type": "number"
+      },
+      "max_artifact_bytes": {
+        "default": 2097152,
+        "maximum": 2097152,
+        "minimum": 1,
+        "title": "Max Artifact Bytes",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "operator_name",
+      "allowed_repos"
+    ],
+    "title": "ToolPolicy",
+    "type": "object"
+  },
+  "tools": {
+    "test_preflight": {
+      "input": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "repo": {
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "pr_number": {
+            "exclusiveMinimum": 0,
+            "title": "Pr Number",
+            "type": "integer"
+          },
+          "expected_base_sha": {
+            "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+            "title": "Expected Base Sha",
+            "type": "string"
+          },
+          "expected_head_sha": {
+            "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+            "title": "Expected Head Sha",
+            "type": "string"
+          },
+          "spec_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Spec Id",
+            "type": "string"
+          },
+          "spec_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Spec Hash",
+            "type": "string"
+          },
+          "test_profile_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Test Profile Id",
+            "type": "string"
+          },
+          "test_profile_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Test Profile Hash",
+            "type": "string"
+          },
+          "environment_manifest_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Environment Manifest Id",
+            "type": "string"
+          },
+          "environment_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Environment Fingerprint",
+            "type": "string"
+          },
+          "policy_version": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "correlation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Correlation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo",
+          "pr_number",
+          "expected_base_sha",
+          "expected_head_sha",
+          "spec_id",
+          "spec_hash",
+          "test_profile_id",
+          "test_profile_hash",
+          "environment_manifest_id",
+          "environment_fingerprint",
+          "policy_version",
+          "correlation_id"
+        ],
+        "title": "StageTarget",
+        "type": "object"
+      },
+      "output": {
+        "$defs": {
+          "Blocker": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "title": "Code",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              },
+              "owner_role": {
+                "title": "Owner Role",
+                "type": "string"
+              },
+              "remediation": {
+                "title": "Remediation",
+                "type": "string"
+              },
+              "requirement_ids": {
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "title": "Requirement Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "owner_role",
+              "remediation"
+            ],
+            "title": "Blocker",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "identity_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Identity Hash",
+            "type": "string"
+          },
+          "head_sha": {
+            "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+            "title": "Head Sha",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Blocker"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "next_owner_role": {
+            "title": "Next Owner Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ready",
+          "identity_hash",
+          "head_sha",
+          "findings",
+          "next_owner_role"
+        ],
+        "title": "PreflightOutput",
+        "type": "object"
+      }
+    },
+    "test_verify": {
+      "input": {
+        "$defs": {
+          "ToolBudget": {
+            "additionalProperties": false,
+            "properties": {
+              "max_debug_iterations": {
+                "default": 0,
+                "maximum": 2,
+                "minimum": 0,
+                "title": "Max Debug Iterations",
+                "type": "integer"
+              },
+              "max_test_executions": {
+                "default": 4,
+                "maximum": 4,
+                "minimum": 1,
+                "title": "Max Test Executions",
+                "type": "integer"
+              },
+              "max_runtime_seconds": {
+                "default": 1200,
+                "maximum": 1200,
+                "minimum": 1,
+                "title": "Max Runtime Seconds",
+                "type": "integer"
+              },
+              "max_llm_cost_usd": {
+                "default": 0.0,
+                "maximum": 2.0,
+                "minimum": 0,
+                "title": "Max Llm Cost Usd",
+                "type": "number"
+              }
+            },
+            "title": "ToolBudget",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "repo": {
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "pr_number": {
+            "exclusiveMinimum": 0,
+            "title": "Pr Number",
+            "type": "integer"
+          },
+          "expected_base_sha": {
+            "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+            "title": "Expected Base Sha",
+            "type": "string"
+          },
+          "expected_head_sha": {
+            "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+            "title": "Expected Head Sha",
+            "type": "string"
+          },
+          "spec_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Spec Id",
+            "type": "string"
+          },
+          "spec_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Spec Hash",
+            "type": "string"
+          },
+          "test_profile_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Test Profile Id",
+            "type": "string"
+          },
+          "test_profile_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Test Profile Hash",
+            "type": "string"
+          },
+          "environment_manifest_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Environment Manifest Id",
+            "type": "string"
+          },
+          "environment_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Environment Fingerprint",
+            "type": "string"
+          },
+          "policy_version": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "correlation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "budget": {
+            "$ref": "#/$defs/ToolBudget"
+          }
+        },
+        "required": [
+          "repo",
+          "pr_number",
+          "expected_base_sha",
+          "expected_head_sha",
+          "spec_id",
+          "spec_hash",
+          "test_profile_id",
+          "test_profile_hash",
+          "environment_manifest_id",
+          "environment_fingerprint",
+          "policy_version",
+          "correlation_id"
+        ],
+        "title": "VerifyInput",
+        "type": "object"
+      },
+      "output": {
+        "$defs": {
+          "CandidatePatchOutput": {
+            "additionalProperties": false,
+            "properties": {
+              "branch": {
+                "title": "Branch",
+                "type": "string"
+              },
+              "commit_sha": {
+                "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+                "title": "Commit Sha",
+                "type": "string"
+              },
+              "original_head_sha": {
+                "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+                "title": "Original Head Sha",
+                "type": "string"
+              },
+              "tested_candidate_sha": {
+                "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+                "title": "Tested Candidate Sha",
+                "type": "string"
+              },
+              "validated": {
+                "const": true,
+                "title": "Validated",
+                "type": "boolean"
+              },
+              "patch_uri": {
+                "title": "Patch Uri",
+                "type": "string"
+              },
+              "publication": {
+                "const": "LOCAL_DRAFT_ONLY",
+                "title": "Publication",
+                "type": "string"
+              },
+              "hypothesis": {
+                "title": "Hypothesis",
+                "type": "string"
+              },
+              "changed_paths": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Changed Paths",
+                "type": "array"
+              },
+              "accepted": {
+                "const": false,
+                "title": "Accepted",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "branch",
+              "commit_sha",
+              "original_head_sha",
+              "tested_candidate_sha",
+              "validated",
+              "patch_uri",
+              "publication",
+              "hypothesis",
+              "changed_paths",
+              "accepted"
+            ],
+            "title": "CandidatePatchOutput",
+            "type": "object"
+          },
+          "ExecutionStatus": {
+            "enum": [
+              "QUEUED",
+              "PREFLIGHT",
+              "TESTING",
+              "DIAGNOSING",
+              "REPAIRING",
+              "COMPLETED",
+              "BLOCKED",
+              "CANCELLED",
+              "ERROR"
+            ],
+            "title": "ExecutionStatus",
+            "type": "string"
+          },
+          "FailureClass": {
+            "enum": [
+              "CODE_REGRESSION",
+              "ENVIRONMENT_BLOCKED",
+              "SPEC_AMBIGUOUS",
+              "TEST_FLAKY",
+              "UNKNOWN"
+            ],
+            "title": "FailureClass",
+            "type": "string"
+          },
+          "Metrics": {
+            "additionalProperties": false,
+            "properties": {
+              "debug_iterations": {
+                "default": 0,
+                "title": "Debug Iterations",
+                "type": "integer"
+              },
+              "test_executions": {
+                "default": 0,
+                "title": "Test Executions",
+                "type": "integer"
+              },
+              "runtime_seconds": {
+                "default": 0.0,
+                "title": "Runtime Seconds",
+                "type": "number"
+              },
+              "model_spend_usd": {
+                "default": 0.0,
+                "title": "Model Spend Usd",
+                "type": "number"
+              },
+              "model_reserved_usd": {
+                "default": 0.0,
+                "title": "Model Reserved Usd",
+                "type": "number"
+              },
+              "queue_seconds": {
+                "default": 0.0,
+                "title": "Queue Seconds",
+                "type": "number"
+              },
+              "phase_elapsed_seconds": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "title": "Phase Elapsed Seconds",
+                "type": "object"
+              },
+              "ci_cost_usd": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Ci Cost Usd"
+              }
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "Readiness": {
+            "enum": [
+              "READY_FOR_QA",
+              "CHANGES_REQUIRED",
+              "BLOCKED",
+              "INCONCLUSIVE",
+              "STALE"
+            ],
+            "title": "Readiness",
+            "type": "string"
+          },
+          "RequirementOutcome": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "BLOCKED",
+              "NOT_VERIFIED"
+            ],
+            "title": "RequirementOutcome",
+            "type": "string"
+          },
+          "RequirementResult": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "test_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Test Ids",
+                "type": "array"
+              },
+              "result": {
+                "$ref": "#/$defs/RequirementOutcome"
+              },
+              "evidence_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Evidence Ids",
+                "type": "array"
+              },
+              "reason": {
+                "default": "",
+                "title": "Reason",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "test_ids",
+              "result"
+            ],
+            "title": "RequirementResult",
+            "type": "object"
+          },
+          "RootCause": {
+            "additionalProperties": false,
+            "properties": {
+              "failure_class": {
+                "$ref": "#/$defs/FailureClass"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              },
+              "observations": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Observations",
+                "type": "array"
+              },
+              "evidence_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Evidence Ids",
+                "type": "array"
+              },
+              "reproduction": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Reproduction",
+                "type": "array"
+              },
+              "owner_role": {
+                "default": "engineer",
+                "title": "Owner Role",
+                "type": "string"
+              },
+              "next_action": {
+                "default": "NEEDS_ENGINEER",
+                "title": "Next Action",
+                "type": "string"
+              },
+              "confidence": {
+                "default": 0.0,
+                "maximum": 1,
+                "minimum": 0,
+                "title": "Confidence",
+                "type": "number"
+              }
+            },
+            "required": [
+              "failure_class",
+              "summary"
+            ],
+            "title": "RootCause",
+            "type": "object"
+          },
+          "TestTotals": {
+            "additionalProperties": false,
+            "properties": {
+              "passed": {
+                "default": 0,
+                "minimum": 0,
+                "title": "Passed",
+                "type": "integer"
+              },
+              "failed": {
+                "default": 0,
+                "minimum": 0,
+                "title": "Failed",
+                "type": "integer"
+              },
+              "skipped": {
+                "default": 0,
+                "minimum": 0,
+                "title": "Skipped",
+                "type": "integer"
+              }
+            },
+            "title": "TestTotals",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^run-[a-f0-9]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "repo": {
+            "title": "Repo",
+            "type": "string"
+          },
+          "pr_number": {
+            "title": "Pr Number",
+            "type": "integer"
+          },
+          "reviewed_head_sha": {
+            "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+            "title": "Reviewed Head Sha",
+            "type": "string"
+          },
+          "spec_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Spec Hash",
+            "type": "string"
+          },
+          "test_profile_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Test Profile Hash",
+            "type": "string"
+          },
+          "environment_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Environment Fingerprint",
+            "type": "string"
+          },
+          "identity_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Identity Hash",
+            "type": "string"
+          },
+          "execution_status": {
+            "$ref": "#/$defs/ExecutionStatus"
+          },
+          "readiness": {
+            "$ref": "#/$defs/Readiness"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/$defs/RequirementResult"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/RootCause"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "tests": {
+            "$ref": "#/$defs/TestTotals"
+          },
+          "metrics": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "candidate_patch": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CandidatePatchOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artifact_manifest_uri": {
+            "title": "Artifact Manifest Uri",
+            "type": "string"
+          },
+          "artifact_manifest_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Artifact Manifest Hash",
+            "type": "string"
+          },
+          "next_owner_role": {
+            "title": "Next Owner Role",
+            "type": "string"
+          },
+          "human_approval_required": {
+            "const": true,
+            "default": true,
+            "title": "Human Approval Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run_id",
+          "repo",
+          "pr_number",
+          "reviewed_head_sha",
+          "spec_hash",
+          "test_profile_hash",
+          "environment_fingerprint",
+          "identity_hash",
+          "execution_status",
+          "readiness",
+          "requirements",
+          "findings",
+          "reasons",
+          "tests",
+          "metrics",
+          "candidate_patch",
+          "artifact_manifest_uri",
+          "artifact_manifest_hash",
+          "next_owner_role"
+        ],
+        "title": "VerifyOutput",
+        "type": "object"
+      }
+    },
+    "test_manifest": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "pattern": "^run-[a-f0-9]{32}$"
+          }
+        }
+      },
+      "output": {
+        "$defs": {
+          "EvidenceEntry": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "path": {
+                "title": "Path",
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Sha256",
+                "type": "string"
+              },
+              "size": {
+                "minimum": 0,
+                "title": "Size",
+                "type": "integer"
+              },
+              "uri": {
+                "title": "Uri",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "sha256",
+              "size",
+              "uri"
+            ],
+            "title": "EvidenceEntry",
+            "type": "object"
+          },
+          "EvidenceManifest": {
+            "additionalProperties": false,
+            "properties": {
+              "schema_version": {
+                "const": "1.0",
+                "default": "1.0",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "run_id": {
+                "pattern": "^run-[a-f0-9]{32}$",
+                "title": "Run Id",
+                "type": "string"
+              },
+              "identity": {
+                "$ref": "#/$defs/PinnedIdentity"
+              },
+              "identity_hash": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Identity Hash",
+                "type": "string"
+              },
+              "evidence": {
+                "items": {
+                  "$ref": "#/$defs/EvidenceEntry"
+                },
+                "title": "Evidence",
+                "type": "array"
+              },
+              "executions": {
+                "items": {
+                  "$ref": "#/$defs/ExecutionLedgerEntry"
+                },
+                "title": "Executions",
+                "type": "array"
+              },
+              "workflow_id": {
+                "title": "Workflow Id",
+                "type": "string"
+              },
+              "job_id": {
+                "title": "Job Id",
+                "type": "string"
+              },
+              "reproduction": {
+                "title": "Reproduction",
+                "type": "string"
+              },
+              "retention": {
+                "title": "Retention",
+                "type": "string"
+              },
+              "integrity_note": {
+                "title": "Integrity Note",
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "identity",
+              "identity_hash",
+              "evidence",
+              "executions",
+              "workflow_id",
+              "job_id",
+              "reproduction",
+              "retention",
+              "integrity_note"
+            ],
+            "title": "EvidenceManifest",
+            "type": "object"
+          },
+          "ExecutionLedgerEntry": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "title": "Label",
+                "type": "string"
+              },
+              "command": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Command",
+                "type": "array"
+              },
+              "exit_code": {
+                "title": "Exit Code",
+                "type": "integer"
+              },
+              "passed": {
+                "minimum": 0,
+                "title": "Passed",
+                "type": "integer"
+              },
+              "failed": {
+                "minimum": 0,
+                "title": "Failed",
+                "type": "integer"
+              },
+              "skipped": {
+                "minimum": 0,
+                "title": "Skipped",
+                "type": "integer"
+              },
+              "trusted": {
+                "title": "Trusted",
+                "type": "boolean"
+              },
+              "timed_out": {
+                "title": "Timed Out",
+                "type": "boolean"
+              },
+              "cancelled": {
+                "title": "Cancelled",
+                "type": "boolean"
+              },
+              "duration_seconds": {
+                "minimum": 0,
+                "title": "Duration Seconds",
+                "type": "number"
+              },
+              "evidence_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Evidence Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "label",
+              "command",
+              "exit_code",
+              "passed",
+              "failed",
+              "skipped",
+              "trusted",
+              "timed_out",
+              "cancelled",
+              "duration_seconds",
+              "evidence_ids"
+            ],
+            "title": "ExecutionLedgerEntry",
+            "type": "object"
+          },
+          "PinnedIdentity": {
+            "additionalProperties": false,
+            "properties": {
+              "repo": {
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+                "title": "Repo",
+                "type": "string"
+              },
+              "pr_number": {
+                "exclusiveMinimum": 0,
+                "title": "Pr Number",
+                "type": "integer"
+              },
+              "base_sha": {
+                "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+                "title": "Base Sha",
+                "type": "string"
+              },
+              "pr_head_sha": {
+                "pattern": "^[a-f0-9]{40}(?:[a-f0-9]{24})?$",
+                "title": "Pr Head Sha",
+                "type": "string"
+              },
+              "spec_hash": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Spec Hash",
+                "type": "string"
+              },
+              "test_profile_hash": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Test Profile Hash",
+                "type": "string"
+              },
+              "environment_fingerprint": {
+                "pattern": "^[a-f0-9]{64}$",
+                "title": "Environment Fingerprint",
+                "type": "string"
+              },
+              "policy_version": {
+                "title": "Policy Version",
+                "type": "string"
+              },
+              "prompt_version": {
+                "title": "Prompt Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo",
+              "pr_number",
+              "base_sha",
+              "pr_head_sha",
+              "spec_hash",
+              "test_profile_hash",
+              "environment_fingerprint",
+              "policy_version",
+              "prompt_version"
+            ],
+            "title": "PinnedIdentity",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^run-[a-f0-9]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "artifact_manifest_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Artifact Manifest Hash",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/$defs/EvidenceManifest"
+          }
+        },
+        "required": [
+          "run_id",
+          "artifact_manifest_hash",
+          "manifest"
+        ],
+        "title": "ManifestOutput",
+        "type": "object"
+      }
+    },
+    "test_artifact": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "name"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "pattern": "^run-[a-f0-9]{32}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      },
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^run-[a-f0-9]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "content_utf8": {
+            "title": "Content Utf8",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "name",
+          "sha256",
+          "size",
+          "content_utf8"
+        ],
+        "title": "ArtifactOutput",
+        "type": "object"
+      }
+    }
+  }
+}

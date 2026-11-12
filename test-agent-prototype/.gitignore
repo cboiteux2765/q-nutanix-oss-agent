@@ -12,3 +12,8 @@ demo-output/
 .evo-data/
 
 example-results/
+
+benchmark-output/
+.evolver-pool/
+.coverage*
+htmlcov/

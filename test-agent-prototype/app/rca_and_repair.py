@@ -23,31 +23,12 @@ class CandidatePatchProposal:
 
 
 @runtime_checkable
-class HypothesisAdapter(Protocol):
-    """OpenAI or another frozen model supplies hypotheses, never test verdicts."""
-
-    def propose_hypotheses(self, context: Mapping[str, Any], evidence: Mapping[str, Any]) -> list[dict[str, Any]]: ...
-
-
-@runtime_checkable
 class RepairAdapter(Protocol):
-    """Implement with mini-swe-agent-v2 behind an explicit bounded adapter."""
+    """Optional operator-injected proposal provider; never manages agents."""
 
     quote_usd: float
 
     def propose(self, context: Any, execution: Any, root_cause: Any = None, *, attempt: int = 1) -> CandidatePatchProposal | None: ...
-
-
-@runtime_checkable
-class JudgeAdapter(Protocol):
-    """Jev may add review advice; its verdict cannot replace runner evidence."""
-
-    def review(self, proposal: CandidatePatchProposal, evidence: Mapping[str, Any]) -> Mapping[str, Any]: ...
-
-
-@runtime_checkable
-class PMNotificationAdapter(Protocol):
-    def notify(self, run_id: str, owner_role: str, finding: Mapping[str, Any]) -> None: ...
 
 
 class AdapterNotConfigured(RuntimeError):
@@ -60,16 +41,6 @@ class UnconfiguredRepairAdapter:
     def propose(self, context: Any, execution: Any, root_cause: Any = None,
                 *, attempt: int = 1) -> CandidatePatchProposal | None:
         raise AdapterNotConfigured("No live repair provider configured; preserve evidence and escalate to an engineer.")
-
-
-class NullPMNotificationAdapter:
-    """Offline default. Persist notifications for inspection, with no network."""
-
-    def __init__(self) -> None:
-        self.notifications: list[dict[str, Any]] = []
-
-    def notify(self, run_id: str, owner_role: str, finding: Mapping[str, Any]) -> None:
-        self.notifications.append({"run_id": run_id, "owner_role": owner_role, "finding": dict(finding)})
 
 
 def _get(value: Any, name: str, default: Any = None) -> Any:
@@ -103,12 +74,14 @@ def _passed(execution: Any) -> bool:
             and _get(totals, "errors", 0) == 0
             and _get(totals, "passed", 0) > 0
             and _get(execution, "trusted", True)
+            and not _get(execution, "blocked_reason")
             and not _get(execution, "timed_out", False)
             and not _get(execution, "cancelled", False))
 
 
 def _failed(execution: Any) -> bool:
     if (execution is None or not _get(execution, "trusted", True)
+            or _get(execution, "blocked_reason")
             or _get(execution, "timed_out", False) or _get(execution, "cancelled", False)):
         return False
     # pytest exit 1 means tests failed; collection/configuration failures do not
