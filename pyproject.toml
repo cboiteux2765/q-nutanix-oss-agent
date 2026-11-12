@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "evo"
+version = "0.1.0"
+description = "A local workspace for recursive coding agents"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "pydantic>=2.10",
+    "python-dotenv>=1.0",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+evo = "evo.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evo"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The default temp cleanup raises WinError 448 on this machine.
+addopts = "--basetemp=.pytest-tmp"
