@@ -37,8 +37,8 @@ Set `OPENAI_API_KEY` in your environment or in a `.env` file (see `.env.example`
 
 1. Connect a local repository.
 2. Ask a question or describe a task.
-3. Watch the team work from the sidebar, or open **Work** for the full timeline.
-4. Use **Memory**, **Skills** and **Evolution** to see and shape what the project has learned.
+3. Watch the team work from the sidebar, or open **Work** for the full timeline. You can keep talking while it works: questions get a quick answer from the recorded state, and instructions go to the main agent, which confirms when it has applied them ([details](docs/main-agent.md)).
+4. Use **Memory**, **Skills** and **Evolution** to see and shape what the project has learned. Evolution tests new Code instructions with [GEPA](https://github.com/gepa-ai/gepa) on real past pytest issues, scored by hidden tests, before you activate them ([details](docs/evolution.md)).
 
 EVO creates a separate working copy for each assignment. Its workflow keeps changes local and only publishes when you request it.
 
