@@ -5,6 +5,8 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronRight,
+  CircleHelp,
+  Flag,
   FolderGit2,
   LoaderCircle,
   PanelRightOpen,
@@ -90,6 +92,8 @@ export function MessageList({
   hasMore,
   onEarlier,
   streaming,
+  draft,
+  delivered,
   active,
   mainName,
   onShowWork,
@@ -101,11 +105,17 @@ export function MessageList({
   hasMore: boolean;
   onEarlier: () => void;
   streaming: string;
+  draft: string;
+  delivered: Set<string>;
   active: boolean;
   mainName: string;
   onShowWork: () => void;
   onResume: () => void;
 }) {
+  const lastUserSeq = Math.max(
+    0,
+    ...messages.filter((m) => m.data.role === 'user').map((m) => m.seq),
+  );
   const teamWorking = agents.some(
     (a) => a.role !== 'orchestrator' && ACTIVE_STATES.includes(a.status),
   );
@@ -123,22 +133,56 @@ export function MessageList({
           Earlier messages
         </button>
       )}
-      {messages.map((e) => (
-        <article
-          className={`message ${e.data.role === 'user' ? 'user-message' : 'assistant-message'}`}
-          key={e.seq}
-        >
-          <div className="message-body">
-            <div className="message-heading">
-              <strong>{e.data.role === 'user' ? 'You' : mainName}</strong>
+      {messages.map((e) => {
+        const text = String(e.data.text || e.data.content || '');
+        if (e.data.channel === 'update') {
+          const notice = String(e.data.notice || 'progress');
+          return (
+            <div className={`update-line ${notice}`} key={e.seq}>
+              {notice === 'question' ? (
+                <CircleHelp size={13} />
+              ) : notice === 'blocker' ? (
+                <AlertCircle size={13} />
+              ) : (
+                <Flag size={13} />
+              )}
+              <MarkdownText>{text}</MarkdownText>
               <time>{timeLabel(e.created_at)}</time>
             </div>
-            <div className="message-bubble">
-              <MarkdownText>{String(e.data.text || e.data.content || '')}</MarkdownText>
+          );
+        }
+        const user = e.data.role === 'user';
+        const status =
+          user && run && e.run_id === run.id && e.seq === lastUserSeq
+            ? delivered.has(e.id)
+              ? `Read by ${mainName}`
+              : active
+                ? `Received · ${mainName} will read it at its next step`
+                : ''
+            : '';
+        return (
+          <article className={`message ${user ? 'user-message' : 'assistant-message'}`} key={e.seq}>
+            <div className="message-body">
+              <div className="message-heading">
+                <strong>{user ? 'You' : mainName}</strong>
+                {Boolean(e.data.responder) && (
+                  <span
+                    className="message-tag"
+                    title="Answered from the recorded state while the work continues"
+                  >
+                    while working
+                  </span>
+                )}
+                <time>{timeLabel(e.created_at)}</time>
+              </div>
+              <div className="message-bubble">
+                <MarkdownText>{text}</MarkdownText>
+              </div>
+              {status && <div className="delivery-status">{status}</div>}
             </div>
-          </div>
-        </article>
-      ))}
+          </article>
+        );
+      })}
       {streaming && (
         <article className="message assistant-message">
           <div className="message-body">
@@ -152,7 +196,16 @@ export function MessageList({
           </div>
         </article>
       )}
-      {active && !streaming && (
+      {draft && !streaming && (
+        <div
+          className="draft-preview"
+          aria-live="off"
+          title="Working text; it becomes a message only if it is the reply"
+        >
+          <MarkdownText>{draft}</MarkdownText>
+        </div>
+      )}
+      {active && !streaming && !draft && (
         <div className="thinking-row" role="status">
           <span className="thinking-dots">
             <i />

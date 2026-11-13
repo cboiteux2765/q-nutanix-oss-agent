@@ -16,12 +16,14 @@ const DETAIL_EVENTS = new Set([
 
 /**
  * The open run: its detail, its event log (kept live over the event stream) and the main
- * agent's streaming reply.
+ * agent's streaming text. `streaming` is a reply to the user being written; `draft` is the
+ * coordinator's working text, which only becomes a message if it turns out to be the reply.
  */
 export function useRun(notify: (text: string, error?: boolean) => void) {
   const [detail, setDetail] = useState<RunDetail | null>(null),
     [events, setEvents] = useState<Event[]>([]),
-    [streaming, setStreaming] = useState('');
+    [streaming, setStreaming] = useState(''),
+    [draft, setDraft] = useState('');
   const currentRun = useRef<string | null>(null),
     requestCounter = useRef(0);
 
@@ -35,6 +37,7 @@ export function useRun(notify: (text: string, error?: boolean) => void) {
     setDetail(null);
     setEvents([]);
     setStreaming('');
+    setDraft('');
   }, []);
 
   /** Open a run. Resolves true once it is shown, false if it failed or was superseded. */
@@ -49,6 +52,7 @@ export function useRun(notify: (text: string, error?: boolean) => void) {
         setDetail(result);
         setEvents((old) => (sameRun ? mergeBySeq(old, result.events || []) : result.events || []));
         setStreaming('');
+        setDraft('');
         return true;
       } catch (e) {
         // A superseded load (the user moved on) fails silently, like a superseded success.
@@ -87,15 +91,24 @@ export function useRun(notify: (text: string, error?: boolean) => void) {
         if (!event.seq) return;
         setEvents((old) => (old.some((x) => x.seq === event.seq) ? old : [...old, event]));
         const fromRoot = !event.agent_id || event.agent_id === rootAgentId;
-        if (event.kind === 'agent.delta' && fromRoot)
-          setStreaming((old) => old + String(event.data.text || ''));
+        const reply = event.data.stream === 'reply';
+        if (event.kind === 'agent.delta' && fromRoot) {
+          const text = String(event.data.text || '');
+          if (reply) setStreaming((old) => old + text);
+          else setDraft((old) => old + text);
+        }
+        if (event.kind === 'agent.response' && fromRoot) {
+          if (reply) setStreaming('');
+          else setDraft('');
+        }
         if (
-          (event.kind === 'message' &&
-            event.data.role === 'assistant' &&
-            event.data.visible !== false) ||
-          (event.kind === 'agent.response' && event.agent_id === rootAgentId)
-        )
-          setStreaming('');
+          event.kind === 'message' &&
+          event.data.role === 'assistant' &&
+          event.data.visible === true
+        ) {
+          if (event.data.responder) setStreaming('');
+          else if (event.data.channel !== 'update') setDraft('');
+        }
         if (DETAIL_EVENTS.has(event.kind) || event.kind.startsWith('workflow.')) refreshDetail();
       } catch {
         /* server heartbeats do not contain events */
@@ -114,5 +127,5 @@ export function useRun(notify: (text: string, error?: boolean) => void) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]);
 
-  return { detail, setDetail, run, events, streaming, loadRun, clearRun, isOpen };
+  return { detail, setDetail, run, events, streaming, draft, loadRun, clearRun, isOpen };
 }

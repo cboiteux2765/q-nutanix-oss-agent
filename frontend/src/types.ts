@@ -68,6 +68,7 @@ export type Settings = {
   sandbox: string;
   input_price: number;
   cached_input_price: number;
+  cache_write_price: number;
   output_price: number;
   [key: string]: unknown;
 };
@@ -98,6 +99,13 @@ export type Page = {
   revision?: string;
   updated_at?: string;
 };
+export type Citation = {
+  kind: 'observed' | 'inferred';
+  event_id?: string;
+  artifact_id?: string;
+  commit?: string;
+  url?: string;
+};
 export type Skill = {
   id: string;
   name: string;
@@ -106,6 +114,8 @@ export type Skill = {
   status: string;
   version?: number;
   role?: string;
+  evidence?: Citation[];
+  evaluation?: { experiment_id: string; passed: boolean; reasons: string[] };
 };
 export type Prompt = {
   id: string;
