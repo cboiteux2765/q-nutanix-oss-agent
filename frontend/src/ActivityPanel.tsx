@@ -69,7 +69,7 @@ export default function ActivityPanel({
     setCompacting(id);
     try {
       await post(`/agents/${id}/compact`);
-      notify('Context compacted. Original history is still available.');
+      notify('Context compacted.');
     } catch (e) {
       notify(errorText(e), true);
     } finally {

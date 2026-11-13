@@ -436,9 +436,7 @@ export function EvolutionView({ project, notify }: Props) {
                     </label>
                   ))
               ) : (
-                <small className="quiet-note">
-                  Finish an assignment first; its record is the evidence.
-                </small>
+                <small className="quiet-note">No finished assignments yet.</small>
               )}
             </div>
             {overview.queue.length > 0 && (
@@ -513,19 +511,15 @@ export function EvolutionView({ project, notify }: Props) {
             </div>
           )}
           <p className="field-help">
-            Each rollout is a full Code session on a real model, capped at{' '}
-            {fmt(limits.rollout_tokens)} tokens. Of {fmt(limits.experiment_tokens)} tokens,{' '}
-            {fmt(heldoutReserve)} are reserved for {2 * pick('heldout').length} held-out rollouts
-            (baseline and candidate on each task). The search gets {fmt(searchTokens)}, enough for{' '}
-            {searchRollouts} rollouts at the full cap (more if they finish under it), plus
-            reflection calls. Every model call is checked against the remaining budget before it
-            starts.
+            Of {fmt(limits.experiment_tokens)} tokens, {fmt(heldoutReserve)} are reserved for{' '}
+            {2 * pick('heldout').length} held-out rollouts (baseline and candidate on each task).
+            The search gets {fmt(searchTokens)}, enough for at least {searchRollouts} rollouts plus
+            reflection calls.
           </p>
           <p className="field-help">
             Spending limit ${(limits.max_cost_usd || 0).toFixed(2)}: ${heldoutReserveUsd.toFixed(2)}{' '}
-            reserved for held-out rollouts, ${searchUsd.toFixed(2)} for the search. Each call is
-            admitted at its worst-case cost (no cache discount assumed), so actual spending is
-            usually far lower. Applies when prices are set in Settings.
+            reserved for held-out rollouts, ${searchUsd.toFixed(2)} for the search. Applies only
+            when prices are set in Settings.
           </p>
           <div className="button-row">
             <button className="button primary" disabled={busy || !canStart}>
@@ -903,7 +897,7 @@ function PromptDetail({
         prompt.status === 'active'
           ? `Active for new assignments · ${prompt.activation_label || 'activated'}`
           : passed
-            ? 'Passed held-out evaluation. Review it before activating.'
+            ? 'Passed held-out evaluation.'
             : prompt.gate
               ? 'Did not pass held-out evaluation.'
               : 'Not evaluated with executable checks.'
@@ -941,7 +935,6 @@ function PromptDetail({
         </p>
         <button className="text-button" onClick={() => setTextEval(!textEval)}>
           {textEval ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Text-response check
-          (model-judged, no code is run)
         </button>
         {textEval && <TextEvaluator project={project} prompt={prompt} notify={notify} />}
       </div>
@@ -1060,7 +1053,7 @@ function SettingsDialog({
   return (
     <Modal
       title="Background evolution"
-      subtitle="Finished and failed assignments are queued as evidence. Nothing runs at startup."
+      subtitle="Finished and failed assignments are queued as evidence."
       onClose={onClose}
     >
       <div className="settings-body">
@@ -1124,8 +1117,7 @@ function SettingsDialog({
               />
               <span>
                 Activate a candidate automatically when it passes every gate and improves held-out
-                results. Otherwise it waits for your review. Skills are never activated
-                automatically.
+                results. Skills are never activated automatically.
               </span>
             </label>
           </>

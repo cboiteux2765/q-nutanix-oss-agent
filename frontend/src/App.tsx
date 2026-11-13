@@ -297,7 +297,7 @@ export default function App() {
       setDetail((d) =>
         d && d.run.id === runId ? { ...d, run: { ...d.run, status: 'cancelled' } } : d,
       );
-      notify('Run stopped. You can continue the conversation.');
+      notify('Run stopped.');
     } catch (e) {
       if (isOpen(runId)) notify(errorText(e), true);
     }
