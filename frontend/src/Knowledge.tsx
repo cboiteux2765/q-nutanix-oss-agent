@@ -10,13 +10,15 @@ import {
   Sparkles,
   ArrowUpRight,
   Check,
-  FlaskConical,
 } from 'lucide-react';
 import { api, arrayOf, errorText, post, put } from './api';
 import { Empty, MarkdownText, Modal, Status } from './components';
-import type { Page, Project, Prompt, Skill } from './types';
+import type { Page, Project, Skill } from './types';
 
 type Props = { project: Project; notify: (text: string, error?: boolean) => void };
+/** Skills are proposed by agents or people and approved by a person. */
+const skillState = (status: string) =>
+  status === 'candidate' ? 'proposed' : status === 'active' ? 'approved' : status;
 export function MemoryView({ project, notify }: Props) {
   const [pages, setPages] = useState<Page[]>([]),
     [page, setPage] = useState<Page | null>(null),
@@ -222,7 +224,7 @@ export function SkillsView({ project, notify }: Props) {
       setContent('');
       setDescription('');
       void load();
-      notify('Skill candidate created.');
+      notify('Skill proposed. Approve it to make it available to new runs.');
     } catch (e) {
       notify(errorText(e), true);
     } finally {
@@ -235,7 +237,7 @@ export function SkillsView({ project, notify }: Props) {
       await post(`/projects/${project.id}/skills/${skill.id}/promote`);
       setSelected({ ...skill, status: 'active' });
       void load();
-      notify('Skill available to new runs.');
+      notify('Skill approved for new runs.');
     } catch (e) {
       notify(errorText(e), true);
     } finally {
@@ -267,7 +269,7 @@ export function SkillsView({ project, notify }: Props) {
                 <span className="skill-symbol">
                   <Sparkles size={19} />
                 </span>
-                <Status status={skill.status} />
+                <Status status={skillState(skill.status)} />
               </div>
               <h3>{skill.name}</h3>
               <p>{skill.description || 'A reusable procedure for your project agents.'}</p>
@@ -293,13 +295,41 @@ export function SkillsView({ project, notify }: Props) {
         >
           <div className="skill-detail">
             <MarkdownText>{selected.content || 'No instructions recorded.'}</MarkdownText>
+            <div className="skill-evidence">
+              <div className="field-title">Evidence</div>
+              {selected.evidence?.length ? (
+                selected.evidence.map((c, i) => (
+                  <div key={i} className="citation">
+                    <span className={`citation-kind ${c.kind}`}>{c.kind}</span>
+                    {c.event_id && <code>event {c.event_id.slice(0, 10)}</code>}
+                    {c.artifact_id && <code>artifact {c.artifact_id.slice(0, 10)}</code>}
+                    {c.commit && <code>commit {c.commit.slice(0, 10)}</code>}
+                    {c.url && (
+                      <a href={c.url} target="_blank" rel="noreferrer">
+                        {c.url}
+                      </a>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <small className="field-help">No evidence was cited.</small>
+              )}
+              {selected.evaluation && (
+                <small className="field-help">
+                  Evaluated in experiment {selected.evaluation.experiment_id.slice(0, 8)}:{' '}
+                  {selected.evaluation.passed
+                    ? 'passed the gate'
+                    : selected.evaluation.reasons.join(' ')}
+                </small>
+              )}
+            </div>
           </div>
           <div className="modal-footer">
-            <Status status={selected.status} />
-            {selected.status !== 'active' && (
+            <Status status={skillState(selected.status)} />
+            {selected.status === 'candidate' && (
               <button className="button primary" disabled={busy} onClick={() => promote(selected)}>
-                {busy ? <LoaderCircle size={15} className="spin" /> : <Check size={15} />}Activate
-                skill
+                {busy ? <LoaderCircle size={15} className="spin" /> : <Check size={15} />}Approve
+                for new runs
               </button>
             )}
           </div>
@@ -308,7 +338,7 @@ export function SkillsView({ project, notify }: Props) {
       {creating && (
         <Modal
           title="Teach a useful habit."
-          subtitle="New skills begin as candidates for you to review."
+          subtitle="New skills start as proposals for you to review."
           onClose={() => setCreating(false)}
         >
           <form onSubmit={create}>
@@ -344,233 +374,10 @@ export function SkillsView({ project, notify }: Props) {
             </div>
             <div className="modal-footer">
               <button className="button primary" disabled={busy} type="submit">
-                {busy && <LoaderCircle size={15} className="spin" />}Create candidate
+                {busy && <LoaderCircle size={15} className="spin" />}Propose skill
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-export function EvolutionView({ project, notify }: Props) {
-  const [prompts, setPrompts] = useState<Prompt[]>([]),
-    [role, setRole] = useState('code'),
-    [feedback, setFeedback] = useState(''),
-    [busy, setBusy] = useState(false),
-    [selected, setSelected] = useState<Prompt | null>(null),
-    [loading, setLoading] = useState(true),
-    [evaluating, setEvaluating] = useState(false),
-    [cases, setCases] = useState(
-      '[\n  {\n    "input": "Describe the task or scenario here",\n    "expected": "Describe a successful response",\n    "split": "heldout"\n  }\n]',
-    ),
-    [evaluation, setEvaluation] = useState<Record<string, unknown> | null>(null),
-    [showEval, setShowEval] = useState(false);
-  const load = useCallback(async () => {
-    try {
-      setPrompts(arrayOf<Prompt>(await api(`/projects/${project.id}/prompts`), 'prompts'));
-    } catch (e) {
-      notify(errorText(e), true);
-    } finally {
-      setLoading(false);
-    }
-  }, [project.id, notify]);
-  useEffect(() => {
-    setSelected(null);
-    void load();
-  }, [load]);
-  async function propose(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const result = await post<Prompt | { candidate: Prompt }>(`/projects/${project.id}/evolve`, {
-        role,
-        feedback,
-      });
-      setSelected('candidate' in result ? result.candidate : result);
-      void load();
-      notify('A prompt candidate is ready to review.');
-    } catch (e) {
-      notify(errorText(e), true);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function promote() {
-    if (!selected) return;
-    setBusy(true);
-    try {
-      await post(`/projects/${project.id}/prompts/${selected.id}/promote`);
-      setSelected({ ...selected, status: 'active' });
-      void load();
-      notify('New prompt selected for future runs.');
-    } catch (e) {
-      notify(errorText(e), true);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function evaluate() {
-    if (!selected) return;
-    setEvaluating(true);
-    try {
-      const parsed = JSON.parse(cases);
-      if (!Array.isArray(parsed)) throw new Error('Cases must be a JSON array.');
-      setEvaluation(
-        await post(`/projects/${project.id}/prompts/${selected.id}/evaluations`, { cases: parsed }),
-      );
-      void load();
-    } catch (e) {
-      notify(errorText(e), true);
-    } finally {
-      setEvaluating(false);
-    }
-  }
-  return (
-    <div className="knowledge-view">
-      <div className="page-heading">
-        <div>
-          <h1>Evolution</h1>
-          <p>Reflect on past runs. Compare a new approach. Keep what helps.</p>
-        </div>
-        <span className="subtle-tag">
-          <FlaskConical size={13} />
-          Prompt lab
-        </span>
-      </div>
-      <div className="evolution-layout">
-        <form className="evolution-form" onSubmit={propose}>
-          <div className="eyebrow">PROPOSE AN IMPROVEMENT</div>
-          <label>
-            Agent role
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              {['spec', 'code', 'test', 'qa', 'orchestrator'].map((r) => (
-                <option key={r} value={r}>
-                  {r === 'qa' ? 'QA' : r[0].toUpperCase() + r.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            What could go better?
-            <textarea
-              required
-              rows={6}
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="For example: the Code agent tends to change unrelated files. Help it keep changes focused on the acceptance criteria."
-            />
-          </label>
-          <p className="field-help">
-            EVO uses your feedback and project run history to draft a versioned prompt. Existing
-            runs keep their original instructions.
-          </p>
-          <button className="button primary" disabled={busy || !feedback.trim()}>
-            {busy ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{' '}
-            {busy ? 'Reflecting on the work…' : 'Generate candidate'}
-          </button>
-        </form>
-        <div className="prompt-list">
-          <div className="section-label">
-            PROMPT VERSIONS <span>{prompts.length}</span>
-          </div>
-          {loading ? (
-            <LoaderCircle size={18} className="spin" />
-          ) : prompts.length ? (
-            prompts
-              .slice()
-              .reverse()
-              .map((p) => (
-                <button
-                  key={p.id}
-                  className="prompt-row"
-                  onClick={() => {
-                    setSelected(p);
-                    setEvaluation(null);
-                    setShowEval(false);
-                  }}
-                >
-                  <span className="role-dot" data-role={p.role} />
-                  <div>
-                    <strong>
-                      {p.role} <span>v{p.version || 1}</span>
-                    </strong>
-                    <small>{p.rationale || 'Versioned agent instructions'}</small>
-                  </div>
-                  <Status status={p.status} />
-                  <ArrowUpRight size={14} />
-                </button>
-              ))
-          ) : (
-            <div className="quiet-note">
-              Your first candidate starts here. The default role instructions are already built into
-              the runtime.
-            </div>
-          )}
-        </div>
-      </div>
-      {selected && (
-        <Modal
-          title={`${selected.role} · version ${selected.version || 1}`}
-          subtitle={
-            selected.status === 'active'
-              ? 'Active for new runs.'
-              : 'A candidate to review before activating.'
-          }
-          onClose={() => {
-            setSelected(null);
-            setShowEval(false);
-            setEvaluation(null);
-          }}
-          wide
-        >
-          <div className="skill-detail">
-            <MarkdownText>
-              {selected.content || selected.rationale || 'Candidate generated.'}
-            </MarkdownText>
-            {showEval && (
-              <div className="evaluation-panel">
-                <label>
-                  Evaluation cases
-                  <textarea
-                    className="code-input"
-                    rows={10}
-                    value={cases}
-                    onChange={(e) => setCases(e.target.value)}
-                    spellCheck={false}
-                  />
-                </label>
-                <p className="field-help">
-                  Compare baseline and candidate responses using your scenarios. Evaluations make
-                  model calls and are recorded separately from project runs.
-                </p>
-                <button className="button secondary" disabled={evaluating} onClick={evaluate}>
-                  {evaluating ? (
-                    <LoaderCircle size={14} className="spin" />
-                  ) : (
-                    <FlaskConical size={14} />
-                  )}
-                  Run comparison
-                </button>
-                {evaluation && (
-                  <pre className="evaluation-result">{JSON.stringify(evaluation, null, 2)}</pre>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="modal-footer">
-            <button className="button secondary" onClick={() => setShowEval(!showEval)}>
-              <FlaskConical size={15} />
-              Evaluate
-            </button>
-            {selected.status !== 'active' && (
-              <button className="button primary" disabled={busy} onClick={promote}>
-                {busy ? <LoaderCircle size={15} className="spin" /> : <Check size={15} />}Activate
-                prompt
-              </button>
-            )}
-          </div>
         </Modal>
       )}
     </div>

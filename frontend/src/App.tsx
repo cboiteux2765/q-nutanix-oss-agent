@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -22,7 +22,8 @@ import {
 import ProjectModal from './ProjectModal';
 import SettingsModal from './SettingsModal';
 import ActivityPanel from './ActivityPanel';
-import { EvolutionView, MemoryView, SkillsView } from './Knowledge';
+import { MemoryView, SkillsView } from './Knowledge';
+import { EvolutionView } from './Evolution';
 import Onboarding from './Onboarding';
 import MainAgentModal from './MainAgentModal';
 import Sidebar, { RESOURCE_TABS, type View } from './Sidebar';
@@ -64,7 +65,51 @@ export default function App() {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), error ? 9000 : 4500);
   }, []);
-  const { detail, setDetail, run, events, streaming, loadRun, clearRun, isOpen } = useRun(notify);
+  const {
+    detail,
+    setDetail,
+    run,
+    events,
+    streaming,
+    draft: runDraft,
+    loadRun,
+    clearRun,
+    isOpen,
+  } = useRun(notify);
+  // A discreet sidebar indicator while an evolution experiment runs in the background.
+  const [evolving, setEvolving] = useState<string | null>(null);
+  useEffect(() => {
+    if (!project) return;
+    const id = project.id;
+    let stopped = false;
+    const check = () =>
+      api<{ experiments: { status: string; stage: string }[] }>(`/projects/${id}/evolution`)
+        .then((d) => {
+          if (stopped) return;
+          const running = d.experiments.find(
+            (e) => e.status === 'running' || e.status === 'queued',
+          );
+          setEvolving(running ? running.stage : null);
+        })
+        .catch(() => {});
+    void check();
+    const timer = setInterval(check, 15000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      setEvolving(null);
+    };
+  }, [project?.id]);
+  // User messages the coordinator has read (a quick reply may come first; reading is not applying).
+  const delivered = useMemo(
+    () =>
+      new Set(
+        events
+          .filter((e) => e.kind === 'message.delivered')
+          .map((e) => String(e.data.message_event_id)),
+      ),
+    [events],
+  );
   const active = !!run && ACTIVE_STATES.includes(run.status);
   const agents = detail?.agents || [];
   const mainName = project?.main_agent?.name || 'EVO';
@@ -175,7 +220,7 @@ export default function App() {
   useEffect(() => {
     if (followMessages.current)
       bottom.current?.scrollIntoView({ behavior: active ? 'instant' : 'smooth', block: 'end' });
-  }, [run?.id, events.length, streaming]);
+  }, [run?.id, events.length, streaming, runDraft]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -339,6 +384,8 @@ export default function App() {
             hasMore={hasMore}
             onEarlier={earlierMessages}
             streaming={streaming}
+            draft={runDraft}
+            delivered={delivered}
             active={active}
             mainName={mainName}
             onShowWork={showWork}
@@ -436,6 +483,7 @@ export default function App() {
         openAgentId={panelOpen && view === 'conversation' ? selectedAgent : null}
         onOpenAgent={openAgent}
         settings={settings}
+        evolving={evolving}
         onSettings={() => setSettingsModal(true)}
       />
       <div className="workspace">

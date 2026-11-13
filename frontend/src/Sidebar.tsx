@@ -56,6 +56,8 @@ type Props = {
   onOpenAgent: (id: string) => void;
   settings: Settings | null;
   onSettings: () => void;
+  /** What background evolution is doing, if anything. */
+  evolving?: string | null;
 };
 
 export default function Sidebar(props: Props) {
@@ -200,6 +202,13 @@ export default function Sidebar(props: Props) {
             >
               <t.icon size={16} />
               <span>{t.label}</span>
+              {t.id === 'evolution' && props.evolving && (
+                <i
+                  className="nav-activity"
+                  title={`Evolution: ${props.evolving}`}
+                  aria-label="Experiment running"
+                />
+              )}
             </button>
           ))}
         </nav>

@@ -91,6 +91,7 @@ export default function SettingsModal({
         'sandbox',
         'input_price',
         'cached_input_price',
+        'cache_write_price',
         'output_price',
       ];
       const payload = Object.fromEntries(
@@ -348,6 +349,31 @@ export default function SettingsModal({
                   Use model defaults to target the lower tier.
                 </p>
               )}
+            <div className="form-grid">
+              {(
+                [
+                  ['input_price', 'Input price'],
+                  ['cached_input_price', 'Cached input price'],
+                  ['cache_write_price', 'Cache write price'],
+                  ['output_price', 'Output price'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key}>
+                  {label} (USD per 1M tokens)
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={Number(form[key] ?? 0)}
+                    onChange={(e) => field(key, Number(e.target.value))}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="field-help">
+              Prices are used to report spending and to enforce spending limits. Leave them at 0 if
+              you don't track cost. A cache write price of 0 is treated as the input price.
+            </p>
             <p className="field-help">
               Agents execute Python and shell commands locally. Connect repositories you trust.
               Model capabilities and context limits depend on your provider.
