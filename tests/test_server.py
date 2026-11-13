@@ -79,3 +79,20 @@ def test_run_detail(client, project):
 def test_cross_origin_writes_are_rejected(client):
     response = client.put("/api/settings", json={}, headers={"Origin": "http://evil.example"})
     assert response.status_code == 403
+
+
+def test_evolution_endpoints(client, project):
+    overview = client.get(f"/api/projects/{project['id']}/evolution").json()
+    assert overview["settings"]["mode"] == "manual"
+    assert {t["split"] for t in overview["tasks"]} == {"train", "validation", "heldout"}
+    saved = client.put(f"/api/projects/{project['id']}/evolution/settings",
+                       json={"mode": "auto", "limits": {"max_metric_calls": 4}}).json()
+    assert saved["mode"] == "auto" and saved["limits"]["max_metric_calls"] == 4
+    assert client.put(f"/api/projects/{project['id']}/evolution/settings",
+                      json={"limits": {"max_metric_calls": 10_000}}).status_code == 400
+    # An experiment needs source runs; the old UI omitted them.
+    response = client.post(f"/api/projects/{project['id']}/experiments", json={"role": "code"})
+    assert response.status_code == 400 and "source runs" in response.json()["detail"]
+    assert client.post(f"/api/projects/{project['id']}/evolve", json={"role": "code"}).status_code == 400
+    rollback = client.post(f"/api/projects/{project['id']}/prompts/rollback", json={"role": "code"}).json()
+    assert rollback["active"] is None

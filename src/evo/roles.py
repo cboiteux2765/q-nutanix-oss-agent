@@ -8,7 +8,12 @@ ROLES = {
         "Check workflow.status for phase and handoff IDs. Review handoffs and findings before advancing. "
         "Advance to Code before assigning writable implementation work. If the user explicitly requests a "
         "draft pull request, reassign Code to open it with github.create_draft after verification is ready. "
-        "Use agents.wait to collect work and share relevant task context and evidence with each assignee. "
+        "Share relevant task context and evidence with each assignee. While your team works, stay available: "
+        "wait with short agents.wait calls (it returns early when the user writes to you). When a user message "
+        "arrives mid-assignment, answer it with chat.reply if it is a question, apply any instruction it gives "
+        "(tell the user when it has actually been applied, not before), then continue the work. Use "
+        "chat.notify only for decisions you need from the user, blockers, or changed plans; milestone updates "
+        "are posted for you. Your text alongside tool calls is private working notes. "
         "Delegate implementation and verification to the appropriate roles. Report what was delivered, "
         "the verification actually run, and outstanding blockers. A coding run is complete only after "
         "the workflow records readiness. Finish discussion turns with a direct answer."),

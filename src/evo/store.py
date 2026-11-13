@@ -28,6 +28,17 @@ def _encode(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
 
 
+class _Transaction:
+    def __init__(self, store: "Store", db: sqlite3.Connection):
+        self.store, self.db = store, db
+
+    def get(self, collection: str, id: str) -> dict | None:
+        return self.store.get(collection, id)
+
+    def put(self, collection: str, id: str, data: dict) -> dict:
+        return self.store._put(self.db, collection, id, data)
+
+
 def require(store: Store, collection: str, record_id: str) -> dict:
     record = store.get(collection, record_id)
     if record is None:
@@ -154,18 +165,27 @@ class Store:
 
     def put(self, collection: str, id: str, data: dict) -> dict:
         with self._transaction() as db:
-            previous = self.get(collection, id) or {}
-            now = utc_now()
-            created_at = previous.get("created_at", now)
-            record = previous | data | {"id": id, "created_at": created_at, "updated_at": now}
-            db.execute(
-                """
-                INSERT INTO records (collection, id, created_at, data) VALUES (?, ?, ?, ?)
-                ON CONFLICT (collection, id) DO UPDATE SET data = excluded.data
-                """,
-                (collection, id, created_at, _encode(record)),
-            )
+            return self._put(db, collection, id, data)
+
+    def _put(self, db: sqlite3.Connection, collection: str, id: str, data: dict) -> dict:
+        previous = self.get(collection, id) or {}
+        now = utc_now()
+        created_at = previous.get("created_at", now)
+        record = previous | data | {"id": id, "created_at": created_at, "updated_at": now}
+        db.execute(
+            """
+            INSERT INTO records (collection, id, created_at, data) VALUES (?, ?, ?, ?)
+            ON CONFLICT (collection, id) DO UPDATE SET data = excluded.data
+            """,
+            (collection, id, created_at, _encode(record)),
+        )
         return record
+
+    def transact(self, change):
+        """Run change(tx) as one transaction: tx.get and tx.put read and write records, and either
+        every write is committed or none is (used for budget settlement)."""
+        with self._transaction() as db:
+            return change(_Transaction(self, db))
 
     def delete(self, collection: str, id: str) -> None:
         with self._transaction() as db:

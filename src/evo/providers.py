@@ -10,10 +10,18 @@ import httpx
 from .common import redact
 
 RAW_ITEMS = "_responses_items"
+# Client errors and rate limits: the request was rejected before the model ran.
+NOT_EXECUTED_STATUSES = {400, 401, 403, 404, 409, 413, 415, 422, 429}
 
 
 class ProviderError(Exception):
-    pass
+    """A failed request. `billing_uncertain` is True when the provider may have processed (and billed)
+    the request even though no usage came back: a dropped connection, a timeout, a stream that ended
+    early, or a malformed reply. An HTTP error response means the request was not processed."""
+
+    def __init__(self, message: str, *, billing_uncertain: bool = False):
+        super().__init__(message)
+        self.billing_uncertain = billing_uncertain
 
 
 def require_provider_key(settings: dict, api_key: str) -> None:
@@ -85,6 +93,9 @@ class ModelProvider:
         self.api_key = api_key
         self.chat_limit_field = "max_completion_tokens"
         self.chat_stream_usage = True
+        # Called before each retry with (billing_uncertain). It may raise to stop the retry, for
+        # example when another attempt would not fit the token budget.
+        self.before_retry = None
         self.client = httpx.AsyncClient(
             base_url=settings["base_url"].rstrip("/") + "/",
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
@@ -157,8 +168,11 @@ class ModelProvider:
         data = await self._request(route, body, on_delta)
         try:
             response = self._decode(data, responses)
+        except ProviderError as exc:
+            exc.billing_uncertain = True  # the request ran; a failed status can still be billed
+            raise
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
-            raise ProviderError("Provider returned a malformed response.") from exc
+            raise ProviderError("Provider returned a malformed response.", billing_uncertain=True) from exc
         return response
 
     async def _request(self, route: str, body: dict, on_delta) -> dict:
@@ -172,12 +186,16 @@ class ModelProvider:
                 await on_delta(text)
 
         while True:
+            uncertain = False
             try:
                 if body.get("stream"):
                     return await self._stream(route, body, delta)
                 response = await self.client.post(route, json=body)
                 response.raise_for_status()
                 return response.json()
+            except ProviderError as exc:
+                exc.billing_uncertain = True  # raised mid-stream: the request was being processed
+                raise
             except httpx.HTTPStatusError as exc:
                 status = exc.response.status_code
                 detail = self._redact(exc.response.text)
@@ -190,13 +208,22 @@ class ModelProvider:
                         self.chat_stream_usage = False
                         body.pop("stream_options")
                         continue
+                # Only these statuses say the request was refused before any work; a server or
+                # gateway error can follow upstream processing, so it may still be billed.
+                uncertain = status not in NOT_EXECUTED_STATUSES
                 if failures == 2 or emitted or (status not in {408, 429} and status < 500):
-                    raise ProviderError(f"Provider returned HTTP {status}: {detail[:600]}") from exc
+                    raise ProviderError(f"Provider returned HTTP {status}: {detail[:600]}",
+                                        billing_uncertain=uncertain or emitted) from exc
             except httpx.TransportError as exc:
+                # The request may have reached the provider before the connection failed.
+                uncertain = not isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
                 if failures == 2 or emitted:
-                    raise ProviderError(f"Provider connection failed: {type(exc).__name__}") from exc
+                    raise ProviderError(f"Provider connection failed: {type(exc).__name__}",
+                                        billing_uncertain=uncertain) from exc
             except ValueError as exc:
-                raise ProviderError("Provider did not return JSON.") from exc
+                raise ProviderError("Provider did not return JSON.", billing_uncertain=True) from exc
+            if self.before_retry:
+                self.before_retry(uncertain)
             await asyncio.sleep(0.5 * 2**failures)
             failures += 1
 
@@ -275,15 +302,26 @@ class ModelProvider:
 
     def _decode(self, data: dict, responses: bool) -> ModelResponse:
         usage = data.get("usage") or {}
-        input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
-        output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
+        reported_input = usage.get("input_tokens", usage.get("prompt_tokens"))
+        reported_output = usage.get("output_tokens", usage.get("completion_tokens"))
+        # Absent is not zero: an incomplete report keeps a conservative charge (see budget.py).
+        reported = (isinstance(reported_input, int) and isinstance(reported_output, int)
+                    and reported_input > 0 and reported_output >= 0)
+        input_tokens = int(reported_input or 0)
+        output_tokens = int(reported_output or 0)
         details = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
         cached = min(input_tokens, int(details.get("cached_tokens", usage.get("prompt_cache_hit_tokens")) or 0))
+        # Input written to the prompt cache is billed at its own rate (part of the input count).
+        written = min(input_tokens - cached, int(details.get("cache_write_tokens")
+                                                 or usage.get("cache_write_tokens") or 0))
         settings = self.settings
-        cost = ((input_tokens - cached) * settings.get("input_price", 0)
+        write_price = settings.get("cache_write_price") or settings.get("input_price", 0)
+        cost = ((input_tokens - cached - written) * settings.get("input_price", 0)
                 + cached * settings.get("cached_input_price", 0)
+                + written * write_price
                 + output_tokens * settings.get("output_price", 0)) / 1_000_000
-        totals = {"input": input_tokens, "output": output_tokens, "cached": cached, "cost_usd": cost}
+        totals = {"input": input_tokens, "output": output_tokens, "cached": cached, "cache_write": written,
+                  "cost_usd": cost, "reported": reported}
         if not responses:
             choice = data["choices"][0]
             message = choice["message"]
