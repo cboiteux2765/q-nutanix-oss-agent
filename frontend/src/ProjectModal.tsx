@@ -37,7 +37,7 @@ export default function ProjectModal({
   return (
     <Modal
       title="Connect a repository"
-      subtitle="Connect a local repository. EVO will work in its own checkout."
+      subtitle="Connect a local repository."
       onClose={onClose}
     >
       <form onSubmit={submit}>

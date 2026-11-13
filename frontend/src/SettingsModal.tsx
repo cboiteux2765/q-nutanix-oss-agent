@@ -202,8 +202,7 @@ export default function SettingsModal({
           />
         </div>
         <p className="field-help">
-          Keys stay on your local server, never in the browser’s storage. A pasted key lasts until
-          the server restarts.
+          A pasted key lasts until the server restarts.
         </p>
         <button
           className="disclosure-button"
@@ -220,11 +219,6 @@ export default function SettingsModal({
                 <strong>
                   {form.runtime_preset === 'auto' ? 'Model defaults' : 'Custom budgets'}
                 </strong>
-                <p>
-                  {form.runtime_preset === 'auto'
-                    ? 'Budgets follow your selected model and provider.'
-                    : 'Your overrides stay in place when you change models.'}
-                </p>
               </div>
               <button
                 className="text-button"
@@ -246,11 +240,9 @@ export default function SettingsModal({
                       <>
                         Standard API pricing through{' '}
                         {modelInfo.standard_input_limit.toLocaleString()} input tokens per request.
-                        Above that, input and cache rates are 2× and output is 1.5×.
+                        Above that, input and cache rates are 2× and output is 1.5×.{' '}
                       </>
-                    ) : (
-                      'The working input budget reserves room for output within the model’s context capacity.'
-                    )}{' '}
+                    ) : null}
                     <a href={modelInfo.source_url} target="_blank" rel="noreferrer">
                       Model details <ArrowUpRight size={11} />
                     </a>
@@ -258,8 +250,7 @@ export default function SettingsModal({
                 </>
               ) : (
                 <p>
-                  Use your provider’s documented limits. OpenAI pricing thresholds are only applied
-                  to recognized models on the OpenAI endpoint.
+                  Use your provider’s documented limits.
                 </p>
               )}
             </div>
@@ -376,7 +367,6 @@ export default function SettingsModal({
             </p>
             <p className="field-help">
               Agents execute Python and shell commands locally. Connect repositories you trust.
-              Model capabilities and context limits depend on your provider.
             </p>
           </div>
         )}

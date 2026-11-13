@@ -247,7 +247,6 @@ export function MessageList({
       )}
       {run && RESUMABLE_STATES.includes(run.status) && (
         <div className="resume-row">
-          <span>Everything so far is saved.</span>
           <button className="button secondary small" onClick={onResume}>
             <RefreshCw size={13} />
             Resume work
