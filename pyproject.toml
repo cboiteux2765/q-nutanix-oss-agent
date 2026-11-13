@@ -9,6 +9,7 @@ description = "A local workspace for recursive coding agents"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
+    "gepa==0.1.4",
     "httpx>=0.27",
     "pydantic>=2.10",
     "python-dotenv>=1.0",

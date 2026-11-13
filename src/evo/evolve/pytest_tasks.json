@@ -1,0 +1,223 @@
+{
+ "description": "Real pytest issues fixed by small merged pull requests, selected by src/evo/evolve/select_tasks.py (criteria in its docstring). Held-out tasks are the newest, and every reflection/validation fix predates the earliest held-out snapshot. Held-out results are computed once per experiment and never shown to the optimizer.",
+ "repository": "pytest-dev/pytest",
+ "criteria_version": 1,
+ "tasks": [
+  {
+   "id": "pytest-14371",
+   "issue": 14371,
+   "pr": 14372,
+   "split": "train",
+   "title": "Provide users a way to exit on error if exceeded the maximum configured warnings",
+   "as_of": "2026-04-08T23:22:16Z"
+  },
+  {
+   "id": "pytest-14381",
+   "issue": 14381,
+   "pr": 14382,
+   "split": "validation",
+   "title": "Version short name (-V) does not appear to work",
+   "as_of": "2026-04-11T13:25:40Z"
+  },
+  {
+   "id": "pytest-14389",
+   "issue": 14389,
+   "pr": 14391,
+   "split": "train",
+   "title": "Exception should be direct cause of `AssertionError` from `raises` context manager on failure for exception to match pattern rather than context",
+   "as_of": "2026-04-17T23:54:53Z"
+  },
+  {
+   "id": "pytest-14392",
+   "issue": 14392,
+   "pr": 14393,
+   "split": "validation",
+   "title": "Fix: is_fully_escaped does not handle consecutive backslashes correctly",
+   "as_of": "2026-04-18T12:59:29Z"
+  },
+  {
+   "id": "pytest-14442",
+   "issue": 14442,
+   "pr": 14443,
+   "split": "train",
+   "title": "`--strict-markers` / `--strict-config` via `addopts` silently stopped working (pytest 9 regression)",
+   "as_of": "2026-05-06T05:28:26Z"
+  },
+  {
+   "id": "pytest-14434",
+   "issue": 14434,
+   "pr": 14460,
+   "split": "validation",
+   "title": "Deprecate pastebin plugin",
+   "as_of": "2026-05-10T20:44:06Z"
+  },
+  {
+   "id": "pytest-14462",
+   "issue": 14462,
+   "pr": 14466,
+   "split": "train",
+   "title": "approx with timedelta: rel parameter treated as absolute tolerance despite its name",
+   "as_of": "2026-05-12T00:43:43Z"
+  },
+  {
+   "id": "pytest-14474",
+   "issue": 14474,
+   "pr": 14475,
+   "split": "validation",
+   "title": "mark expression scanner: backslash check in string literal searches entire input instead of the string value",
+   "as_of": "2026-05-13T07:07:59Z"
+  },
+  {
+   "id": "pytest-14483",
+   "issue": 14483,
+   "pr": 14484,
+   "split": "train",
+   "title": "bin_xml_escape: supplementary plane characters (U+10000+) incorrectly escaped due to wrong unicode escape in regex",
+   "as_of": "2026-05-15T02:33:14Z"
+  },
+  {
+   "id": "pytest-14492",
+   "issue": 14492,
+   "pr": 14493,
+   "split": "validation",
+   "title": "Code.getargs: CO_VARARGS/CO_VARKEYWORDS bit flags treated as counts, local vars leak into argument list",
+   "as_of": "2026-05-17T11:49:58Z"
+  },
+  {
+   "id": "pytest-14461",
+   "issue": 14461,
+   "pr": 14504,
+   "split": "train",
+   "title": "Support generic mapping in builtin assertrepr compare",
+   "as_of": "2026-05-23T11:50:19Z"
+  },
+  {
+   "id": "pytest-14513",
+   "issue": 14513,
+   "pr": 14566,
+   "split": "validation",
+   "title": "Fixture override order should be determined by visibility?",
+   "as_of": "2026-06-06T19:14:22Z"
+  },
+  {
+   "id": "pytest-14608",
+   "issue": 14608,
+   "pr": 14622,
+   "split": "train",
+   "title": "pytest 9.1.0: conftest.py `addoption` regressed in nested directories",
+   "as_of": "2026-06-18T12:27:37Z"
+  },
+  {
+   "id": "pytest-14637",
+   "issue": 14637,
+   "pr": 14639,
+   "split": "validation",
+   "title": "assertion diff: trailing character skip fails when first characters differ (off-by-one in `left[-i]` when `i=0`)",
+   "as_of": "2026-06-22T15:48:01Z"
+  },
+  {
+   "id": "pytest-14635",
+   "issue": 14635,
+   "pr": 14645,
+   "split": "train",
+   "title": "Error collecting tests on 9.1.1 - fixtures not found when a parent directory appears multiple times in a argument list ",
+   "as_of": "2026-06-23T04:44:29Z"
+  },
+  {
+   "id": "pytest-14638",
+   "issue": 14638,
+   "pr": 14646,
+   "split": "validation",
+   "title": "pytest.toml without section header leads to silently ignored options",
+   "as_of": "2026-06-23T11:47:08Z"
+  },
+  {
+   "id": "pytest-14724",
+   "issue": 14724,
+   "pr": 14730,
+   "split": "train",
+   "title": "`--no-summary` disables the `pytest_terminal_summary` hook, silencing third-party plugins as well as pytest's own summary",
+   "as_of": "2026-07-19T15:02:53Z"
+  },
+  {
+   "id": "pytest-14808",
+   "issue": 14808,
+   "pr": 14811,
+   "split": "heldout",
+   "title": "_getini_ini: \"string\" type returns list silently instead of raising TypeError",
+   "as_of": "2026-07-31T14:44:13Z"
+  },
+  {
+   "id": "pytest-14864",
+   "issue": 14864,
+   "pr": 14865,
+   "split": "heldout",
+   "title": "(Windows) passing a file path collects the whole suite, on a network drive where st_ino is 0",
+   "as_of": "2026-08-12T12:03:30Z"
+  },
+  {
+   "id": "pytest-14909",
+   "issue": 14909,
+   "pr": 14910,
+   "split": "heldout",
+   "title": "MonkeyPatch records stale undo entries when delattr/setitem/delitem fails",
+   "as_of": "2026-08-19T15:45:28Z"
+  },
+  {
+   "id": "pytest-14953",
+   "issue": 14953,
+   "pr": 14954,
+   "split": "heldout",
+   "title": "`max_warnings` rejects the integer shown in the native TOML documentation",
+   "as_of": "2026-08-31T01:29:27Z"
+  },
+  {
+   "id": "pytest-14619",
+   "issue": 14619,
+   "pr": 14978,
+   "split": "heldout",
+   "title": "Spurious comma in `parametrize` causes obfuscated crash",
+   "as_of": "2026-09-06T08:58:06Z"
+  },
+  {
+   "id": "pytest-15043",
+   "issue": 15043,
+   "pr": 15044,
+   "split": "heldout",
+   "title": "cache.set() raises on write and close errors instead of warning",
+   "as_of": "2026-09-16T23:16:23Z"
+  },
+  {
+   "id": "pytest-15052",
+   "issue": 15052,
+   "pr": 15053,
+   "split": "heldout",
+   "title": "fixtures: `--fixtures-per-test` has an off-by-one on item's lineno",
+   "as_of": "2026-09-17T11:46:58Z"
+  },
+  {
+   "id": "pytest-15132",
+   "issue": 15132,
+   "pr": 15133,
+   "split": "heldout",
+   "title": "Native TOML numeric faulthandler_timeout is rejected",
+   "as_of": "2026-10-05T03:18:17Z"
+  },
+  {
+   "id": "pytest-15254",
+   "issue": 15254,
+   "pr": 15255,
+   "split": "heldout",
+   "title": "tmp_path / tmp_path_factory.mktemp list the whole basetemp on every call: O(N^2) over a session",
+   "as_of": "2026-10-24T10:23:04Z"
+  },
+  {
+   "id": "pytest-15290",
+   "issue": 15290,
+   "pr": 15296,
+   "split": "heldout",
+   "title": "TOML config opts `verbosity_assertions`, `verbosity_subtests`, & `verbosity_test_cases` no longer accept numeric string values in 9.2.0",
+   "as_of": "2026-10-29T16:22:08Z"
+  }
+ ]
+}

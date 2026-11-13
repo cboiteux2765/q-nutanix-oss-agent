@@ -38,7 +38,7 @@ class SkillLibrary:
         return record
 
     def propose(self, project_id: str, name: str, content: str, agent_id: str | None = None,
-                *, description: str = "") -> dict:
+                *, description: str = "", evidence: list | None = None, run_id: str | None = None) -> dict:
         name = name.strip()
         if not name or len(name) > 120 or not content.strip() or len(content) > 100_000:
             raise ValueError("Provide a skill name and up to 100,000 characters of instructions.")
@@ -46,17 +46,18 @@ class SkillLibrary:
             versions = [item["version"] for item in self.list(project_id) if item["name"] == name]
             return self.store.put("skills", uuid4().hex, {
                 "project_id": project_id, "name": name, "content": content, "author_id": agent_id,
-                "description": description,
+                "description": description, "evidence": evidence or [], "source_run_id": run_id,
                 "status": "candidate", "version": max(versions, default=0) + 1,
             })
 
     def promote(self, project_id: str, skill_id: str) -> dict:
+        """Approve a proposed skill (a human review step; nothing approves skills automatically)."""
         with _LOCK:
             skill = self.read(project_id, skill_id)
             for current in self.list(project_id, active_only=True):
                 if current["name"] == skill["name"] and current["id"] != skill_id:
                     self.store.put("skills", current["id"], {"status": "superseded"})
-            return self.store.put("skills", skill_id, {"status": "active"})
+            return self.store.put("skills", skill_id, {"status": "active", "approved_by": "user"})
 
 
 class EvolutionService:

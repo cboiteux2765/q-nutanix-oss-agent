@@ -124,6 +124,10 @@ class ToolBroker:
         if name not in TOOL_MANIFEST:
             raise ValueError(f"Unknown tool {name!r}.")
         scope = _Scope(self, agent_id)
+        # Evaluation runs deny tools with outside effects (publishing, web, durable memory).
+        denied = scope.run.get("tool_policy", {}).get("deny", [])
+        if any(name == rule or (rule.endswith(".*") and name.startswith(rule[:-1])) for rule in denied):
+            raise PermissionError(f"{name} is disabled in this run.")
         target = getattr(scope, name.replace(".", "_", 1))
         inspect.signature(target).bind(*args, **kwargs)
         if inspect.iscoroutinefunction(target):
@@ -359,6 +363,16 @@ class _Scope:
         """lists agents in this run."""
         return self.broker.runtime.list_agents(self.agent_id)
 
+    def chat_reply(self, text: str) -> dict:
+        """main agent only: answers the user now, while the team keeps working. The text appears in the conversation."""
+        return self.broker.runtime.post_chat(self.agent_id, text, channel="reply")
+
+    def chat_notify(self, text: str, kind: str = "progress") -> dict:
+        """main agent only: tells the user about a milestone, blocker or decision they need to make (kind: progress, blocker, question). Not for routine "still working" notes."""
+        if kind not in {"progress", "blocker", "question"}:
+            raise ValueError("Use kind progress, blocker, or question.")
+        return self.broker.runtime.post_chat(self.agent_id, text, channel="update", kind=kind)
+
     def _project_run(self, run_id: str) -> dict:
         run = require(self.store, "runs", run_id)
         if run["project_id"] != self.project_id:
@@ -441,7 +455,8 @@ class _Scope:
 
     def memory_write(self, path: str, content: str, citations: list | None = None,
                      expected_revision: str | None = None) -> dict:
-        """commits a Markdown page using the run's observed page revision by default."""
+        """commits a Markdown page using the run's observed page revision by default. Cite evidence as [{"event_id"|"artifact_id"|"commit"|"url": ..., "kind": "observed"|"inferred"}]."""
+        citations = self._validated_citations(citations)
         with _WIKI_VIEW_LOCK:
             if expected_revision is None:
                 try:
@@ -453,6 +468,32 @@ class _Scope:
             )
             self.memory_refresh()
             return result
+
+    def _validated_citations(self, citations) -> list[dict]:
+        """Citations must point at real evidence in this project, labelled observed or inferred."""
+        result = []
+        for citation in citations or []:
+            if isinstance(citation, str):
+                citation = {"event_id": citation, "kind": "observed"}
+            if not isinstance(citation, dict):
+                raise ValueError("Each citation must be an object such as {'event_id': ..., 'kind': 'observed'}.")
+            citation = dict(citation)
+            citation.setdefault("kind", "observed")
+            if citation["kind"] not in {"observed", "inferred"}:
+                raise ValueError("Citation kind must be observed or inferred.")
+            refs = [key for key in ("event_id", "artifact_id", "commit", "url") if citation.get(key)]
+            if not refs:
+                raise ValueError("A citation needs an event_id, artifact_id, commit, or url.")
+            if citation.get("event_id"):
+                self.history_trace([citation["event_id"]])
+            if citation.get("artifact_id"):
+                record = self.store.get("artifacts", citation["artifact_id"])
+                if not record or record.get("project_id") != self.project_id:
+                    raise KeyError(f"No artifact {citation['artifact_id']!r} in this project.")
+            if citation.get("url") and not str(citation["url"]).startswith(("http://", "https://")):
+                raise ValueError("Citation URLs must use http or https.")
+            result.append(citation)
+        return result
 
     def memory_history(self, path: str) -> list[dict]:
         """lists page revisions visible to the run."""
@@ -481,10 +522,11 @@ class _Scope:
             raise PermissionError("This skill version is unavailable to the current run.")
         return skill
 
-    def skills_propose(self, name: str, content: str, description: str = "") -> dict:
-        """records an inactive skill candidate for human review."""
+    def skills_propose(self, name: str, content: str, description: str = "", evidence: list | None = None) -> dict:
+        """records an inactive skill proposal for human review. Cite the events or artifacts that motivated it as evidence (same format as memory citations)."""
         return self.broker.skills.propose(
             self.project_id, name, content, self.agent_id, description=description,
+            evidence=self._validated_citations(evidence), run_id=self.run_id,
         )
 
     def workflow_status(self) -> dict:

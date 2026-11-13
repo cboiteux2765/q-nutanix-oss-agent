@@ -3,7 +3,7 @@ import asyncio
 
 from evo.runtime import Runtime
 
-from .conftest import python_call, reply, settle, transcript
+from .conftest import FakeProvider, python_call, reply, settle, transcript
 
 
 def run_async(coro):
@@ -57,9 +57,10 @@ def test_tool_call_runs_python_and_records_result(store, project, fake_provider)
     assert visible == ["Count agents", "One agent."]
 
 
-def test_budget_stops_run(store, project, fake_provider):
+def test_budget_refuses_a_call_that_might_not_fit(store, project, fake_provider):
+    """The budget is checked before each call against its worst case, so it is never overshot."""
     store.put("settings", "provider", {"max_run_tokens": 100})
-    fake_provider.script = [python_call("1", tokens=60), reply("never")]
+    fake_provider.script = [reply("never")]
 
     async def scenario():
         runtime = Runtime(store)
@@ -70,21 +71,20 @@ def test_budget_stops_run(store, project, fake_provider):
 
     run = store.get("runs", run_async(scenario()))
     assert run["status"] == "failed"
-    assert run["error"] == "Run reached its token budget."
+    assert run["error"].startswith("Run reached its token budget: the next model call could use up to")
+    assert FakeProvider.calls == [] and run["token_usage"]["input"] + run["token_usage"]["output"] == 0
 
 
 def test_budget_reads_the_saved_run_snapshot(store, project, fake_provider):
-    """Raising a run's saved budget takes effect without restarting the agent's turn."""
-    store.put("settings", "provider", {"max_run_tokens": 100})
+    """Changing a run's saved budget applies to its next model call, mid-turn."""
     holder = {}
 
-    def raise_budget(messages):
+    def lower_budget(messages):
         run = store.get("runs", holder["run_id"])
-        store.put("runs", run["id"], {"settings_snapshot": run["settings_snapshot"] | {"max_run_tokens": 10_000}})
-        return python_call("2", call_id="call-2", tokens=30)
+        store.put("runs", run["id"], {"settings_snapshot": run["settings_snapshot"] | {"max_run_tokens": 1_000}})
+        return python_call("1", tokens=30)
 
-    # 60 tokens, then 120: over the original 100-token budget, under the raised one.
-    fake_provider.script = [python_call("1", tokens=30), raise_budget, reply("Finished.")]
+    fake_provider.script = [lower_budget, reply("never")]
 
     async def scenario():
         runtime = Runtime(store)
@@ -95,8 +95,27 @@ def test_budget_reads_the_saved_run_snapshot(store, project, fake_provider):
         return run["id"]
 
     run = store.get("runs", run_async(scenario()))
-    assert run["status"] == "waiting", run.get("error")
-    assert run["token_usage"]["input"] + run["token_usage"]["output"] == 140
+    assert run["status"] == "failed" and "token budget" in run["error"]
+    assert len(FakeProvider.calls) == 1
+    assert run["token_usage"]["input"] + run["token_usage"]["output"] == 60
+
+
+def test_conversation_bound_uses_the_reported_prefix():
+    from evo.budget import ConversationBound, input_bound
+    bound = ConversationBound()
+    history = [{"role": "system", "content": "x" * 5000}, {"role": "user", "content": "hi"}]
+    full = input_bound(history)
+    assert bound.bound("a", history) == full
+    bound.record("a", history, {"input": 1300})
+    grown = [*history, {"role": "assistant", "content": "ok"}, {"role": "user", "content": "more"}]
+    tighter = bound.bound("a", grown)
+    assert tighter == 1300 + input_bound(grown) - input_bound(history)
+    # A rewritten history (compaction) falls back to the byte bound.
+    rewritten = [{"role": "system", "content": "y" * 5000}, *grown[1:]]
+    assert bound.bound("a", rewritten) == input_bound(rewritten)
+    # No reported usage: no shortcut.
+    bound.record("a", history, {})
+    assert bound.bound("a", grown) == input_bound(grown)
 
 
 def test_compaction_replaces_older_history(store, project, fake_provider):

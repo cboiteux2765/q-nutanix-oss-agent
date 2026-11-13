@@ -1,0 +1,3120 @@
+{
+ "criteria_version": 1,
+ "generated_at": "2026-11-12T18:21:14",
+ "mirror": {
+  "window_start": "2026-04-01",
+  "source": "capstone replay mirror (history.db + repo.git)"
+ },
+ "counts": {
+  "candidates": 116,
+  "verified": 27,
+  "splits": {
+   "train": 9,
+   "validation": 8,
+   "heldout": 10
+  }
+ },
+ "boundary": {
+  "latest_search_fix_merged": "2026-07-23T09:36:37Z",
+  "earliest_heldout_snapshot": "2026-07-31T14:44:13Z"
+ },
+ "related": [
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14381"
+   ],
+   "splits": [
+    "train",
+    "validation"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14442"
+   ],
+   "splits": [
+    "train",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14608"
+   ],
+   "splits": [
+    "train",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14635"
+   ],
+   "splits": [
+    "train",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/main.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14724"
+   ],
+   "splits": [
+    "train",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/terminal.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14808"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-14953"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/main.py",
+    "src/_pytest/terminal.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14371",
+    "pytest-15290"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14381",
+    "pytest-14442"
+   ],
+   "splits": [
+    "validation",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14381",
+    "pytest-14608"
+   ],
+   "splits": [
+    "validation",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14381",
+    "pytest-14808"
+   ],
+   "splits": [
+    "validation",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14381",
+    "pytest-15290"
+   ],
+   "splits": [
+    "validation",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14389",
+    "pytest-14392"
+   ],
+   "splits": [
+    "train",
+    "validation"
+   ],
+   "shared_files": [
+    "src/_pytest/raises.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14442",
+    "pytest-14608"
+   ],
+   "splits": [
+    "train",
+    "train"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14442",
+    "pytest-14808"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14442",
+    "pytest-15290"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14434",
+    "pytest-14808"
+   ],
+   "splits": [
+    "validation",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/deprecated.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14434",
+    "pytest-15290"
+   ],
+   "splits": [
+    "validation",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/deprecated.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14608",
+    "pytest-14808"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14608",
+    "pytest-15290"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14635",
+    "pytest-14953"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/main.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14724",
+    "pytest-14953"
+   ],
+   "splits": [
+    "train",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/terminal.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-14808",
+    "pytest-15290"
+   ],
+   "splits": [
+    "heldout",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/config/__init__.py",
+    "src/_pytest/deprecated.py"
+   ]
+  },
+  {
+   "tasks": [
+    "pytest-15254",
+    "pytest-15290"
+   ],
+   "splits": [
+    "heldout",
+    "heldout"
+   ],
+   "shared_files": [
+    "src/_pytest/tmpdir.py"
+   ]
+  }
+ ],
+ "candidates": [
+  {
+   "pr": 14363,
+   "pr_title": "[PR #14343/95d8423b backport][9.0.x] tmpdir: fix insecure temporary directory vulnerability (CVE-2025-71176)",
+   "pr_created_at": "2026-04-07T14:43:25Z",
+   "merged_at": "2026-04-07T15:02:05Z",
+   "merge_commit": "99a7e6029e7a6e8d53e5df114b1346e035370241",
+   "issues": [
+    14279
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14369,
+   "pr_title": " fixtures: fix parametrization losing (static) transitive dependencies from overridden fixtures",
+   "pr_created_at": "2026-04-08T12:40:05Z",
+   "merged_at": "2026-05-03T09:06:01Z",
+   "merge_commit": "206b9716abd936702689381e8cee0d84ff61945f",
+   "issues": [
+    14248
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 14248,
+   "title": "[Bug] `prune_dependency_tree`'s behaviour conflicts with the latest improvements in `getfixtureclosure` (pytest 9.x)",
+   "issue_created_at": "2026-03-02T21:55:41Z"
+  },
+  {
+   "pr": 14372,
+   "pr_title": "Add `--max-warnings` option to fail test runs",
+   "pr_created_at": "2026-04-08T23:22:17Z",
+   "merged_at": "2026-04-16T11:59:32Z",
+   "merge_commit": "90465694d3501267decade1ac0be988999940957",
+   "issues": [
+    14371
+   ],
+   "excluded": null,
+   "issue": 14371,
+   "title": "Provide users a way to exit on error if exceeded the maximum configured warnings",
+   "issue_created_at": "2026-04-08T23:12:30Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py",
+    "src/_pytest/main.py",
+    "src/_pytest/terminal.py"
+   ],
+   "test_files": [
+    "testing/test_warnings.py"
+   ],
+   "source_lines": 37,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 10,
+    "pass_to_pass": 41,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      10
+     ],
+     "pass_to_pass": [
+      41,
+      41
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      10,
+      10
+     ],
+     "pass_to_pass": [
+      41,
+      41
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 953,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14375,
+   "pr_title": "logging: also capture logs from non-propagating loggers",
+   "pr_created_at": "2026-04-10T09:36:06Z",
+   "merged_at": "2026-05-08T19:36:04Z",
+   "merge_commit": "794de4c93461d3b3570b074240167e85715a8f69",
+   "issues": [
+    3697
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 3697,
+   "title": "Handling of loggers with propagate=False",
+   "issue_created_at": "2018-07-19T11:42:02Z"
+  },
+  {
+   "pr": 14380,
+   "pr_title": "doc/reference: add a note to `consider_namespace_packages` that the packages need to be importable",
+   "pr_created_at": "2026-04-11T11:38:48Z",
+   "merged_at": "2026-04-11T16:04:43Z",
+   "merge_commit": "18db92df7f2515e4a9bf589c54a863693dff724d",
+   "issues": [
+    12303
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12303,
+   "title": "c85fce39b regressed importing standard library modules that are \"masked\"",
+   "issue_created_at": "2024-05-10T07:15:59Z"
+  },
+  {
+   "pr": 14382,
+   "pr_title": "Fix `-V` to show version information",
+   "pr_created_at": "2026-04-11T13:25:41Z",
+   "merged_at": "2026-04-21T11:54:18Z",
+   "merge_commit": "d72943a57266ef368fb3498a3fd136cbf1c7aee6",
+   "issues": [
+    14381
+   ],
+   "excluded": null,
+   "issue": 14381,
+   "title": "Version short name (-V) does not appear to work",
+   "issue_created_at": "2026-04-11T12:45:39Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py"
+   ],
+   "test_files": [
+    "testing/test_helpconfig.py"
+   ],
+   "source_lines": 7,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 12,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      12,
+      12
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      12,
+      12
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1029,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14391,
+   "pr_title": "Use direct cause for raises match failures",
+   "pr_created_at": "2026-04-17T23:54:54Z",
+   "merged_at": "2026-04-26T07:21:17Z",
+   "merge_commit": "cd7592c41c40ebc9663c2984447d72e95c731bda",
+   "issues": [
+    14389
+   ],
+   "excluded": null,
+   "issue": 14389,
+   "title": "Exception should be direct cause of `AssertionError` from `raises` context manager on failure for exception to match pattern rather than context",
+   "issue_created_at": "2026-04-17T14:37:31Z",
+   "source_files": [
+    "src/_pytest/raises.py"
+   ],
+   "test_files": [
+    "testing/python/raises.py"
+   ],
+   "source_lines": 2,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 33,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      33,
+      33
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      33,
+      33
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1171,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14393,
+   "pr_title": "Fix: is_fully_escaped does not handle consecutive backslashes correctly",
+   "pr_created_at": "2026-04-18T12:59:30Z",
+   "merged_at": "2026-04-25T18:54:10Z",
+   "merge_commit": "a38b20d79039d50c504320b5d4d790c61893a90e",
+   "issues": [
+    14392
+   ],
+   "excluded": null,
+   "issue": 14392,
+   "title": "Fix: is_fully_escaped does not handle consecutive backslashes correctly",
+   "issue_created_at": "2026-04-18T12:55:06Z",
+   "source_files": [
+    "src/_pytest/raises.py"
+   ],
+   "test_files": [
+    "testing/python/raises.py"
+   ],
+   "source_lines": 7,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 33,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      33,
+      33
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      33,
+      33
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1307,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14407,
+   "pr_title": "[PR #14382/d72943a5 backport][9.0.x] Fix `-V` to show version information",
+   "pr_created_at": "2026-04-21T11:54:31Z",
+   "merged_at": "2026-04-21T12:07:51Z",
+   "merge_commit": "68a341f49596fa43c89e052d437723860b98a443",
+   "issues": [
+    14381
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14414,
+   "pr_title": "Add datetime/timedelta support to pytest.approx (#8395)",
+   "pr_created_at": "2026-04-23T11:02:53Z",
+   "merged_at": "2026-05-08T07:57:43Z",
+   "merge_commit": "07dbfab72000c076352edc41d0cbec7a77c6e376",
+   "issues": [
+    8395
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 8395,
+   "title": "datetime and timedelta suport for approx",
+   "issue_created_at": "2021-03-04T09:21:42Z"
+  },
+  {
+   "pr": 14418,
+   "pr_title": " assertion/rewrite: fix test crash on assert failure with `terminalreporter` disabled",
+   "pr_created_at": "2026-04-25T17:38:27Z",
+   "merged_at": "2026-05-01T07:52:20Z",
+   "merge_commit": "32dab33559d19270ef999e12d096074313c7d684",
+   "issues": [
+    14377
+   ],
+   "excluded": "reference verification failed: error: patch failed: src/_pytest/assertion/util.py:174\nerror: src/_pytest/assertion/util.py: patch does not apply",
+   "issue": 14377,
+   "title": "Config.get_terminal_writer() crashes with AssertionError when terminalreporter is unregistered (pytest-tap streaming + non-test file asserts)",
+   "issue_created_at": "2026-04-10T20:45:01Z",
+   "source_files": [
+    "src/_pytest/assertion/__init__.py",
+    "src/_pytest/assertion/util.py"
+   ],
+   "test_files": [
+    "testing/test_assertion.py",
+    "testing/test_assertrewrite.py"
+   ],
+   "source_lines": 23,
+   "other_files": []
+  },
+  {
+   "pr": 14420,
+   "pr_title": "[PR #14391/cd7592c4 backport][9.0.x] Use direct cause for raises match failures",
+   "pr_created_at": "2026-04-26T07:22:06Z",
+   "merged_at": "2026-04-26T08:27:06Z",
+   "merge_commit": "e885db45f05c3ab5b3d914c0f9dfb81e1e33aa82",
+   "issues": [
+    14389
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14422,
+   "pr_title": "Fix duplicate values in Config.known_args_namespace for append actions",
+   "pr_created_at": "2026-04-26T09:00:52Z",
+   "merged_at": "2026-04-29T08:50:08Z",
+   "merge_commit": "602fc183e54f7652d164f85782c3bba0c96d96d9",
+   "issues": [
+    13484
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13484,
+   "title": "`Config.known_args_namespace` contains duplicate value",
+   "issue_created_at": "2025-06-03T12:05:23Z"
+  },
+  {
+   "pr": 14425,
+   "pr_title": "Codex/assertion text diff blocks",
+   "pr_created_at": "2026-04-27T10:35:48Z",
+   "merged_at": "2026-05-18T16:18:31Z",
+   "merge_commit": "d6dbe52bda18fe2cb63c3c9060d7ef8597465655",
+   "issues": [
+    6757
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 6757,
+   "title": "assertion diffs for multiline-string can become unreadable soup",
+   "issue_created_at": "2020-02-18T06:10:26Z"
+  },
+  {
+   "pr": 14433,
+   "pr_title": "[PR #14254/2aa07343 backport][9.0.x] docs: guard pytestconfig.cache example when cacheprovider is disabled",
+   "pr_created_at": "2026-05-01T11:25:20Z",
+   "merged_at": "2026-05-01T11:44:50Z",
+   "merge_commit": "6e8f51481a2f7891da6301528620c8cff22a06d4",
+   "issues": [
+    14148
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14443,
+   "pr_title": "Fix strict options from addopts",
+   "pr_created_at": "2026-05-06T05:28:27Z",
+   "merged_at": "2026-05-08T20:40:32Z",
+   "merge_commit": "a481f264d70ac3d053d5f7408f4ac1ec439d0c2f",
+   "issues": [
+    14442
+   ],
+   "excluded": null,
+   "issue": 14442,
+   "title": "`--strict-markers` / `--strict-config` via `addopts` silently stopped working (pytest 9 regression)",
+   "issue_created_at": "2026-05-05T18:30:59Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py"
+   ],
+   "test_files": [
+    "testing/test_config.py",
+    "testing/test_mark.py"
+   ],
+   "source_lines": 7,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 2,
+    "pass_to_pass": 353,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      2
+     ],
+     "pass_to_pass": [
+      353,
+      353
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      2,
+      2
+     ],
+     "pass_to_pass": [
+      353,
+      353
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1847,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14447,
+   "pr_title": "fix(rewrite): prevent walrus operator double evaluation in assertions",
+   "pr_created_at": "2026-05-08T08:38:46Z",
+   "merged_at": "2026-09-01T11:50:23Z",
+   "merge_commit": "51e9a9f148cd2509a31e3fa0d2b1b3204c2b0dd7",
+   "issues": [
+    14445
+   ],
+   "excluded": "158 changed source lines (limit 80)",
+   "issue": 14445,
+   "title": "Walrus expression duplicate evaluation failures with rewrite",
+   "issue_created_at": "2026-05-07T11:37:20Z",
+   "source_files": [
+    "src/_pytest/assertion/rewrite.py"
+   ],
+   "test_files": [
+    "testing/test_assertrewrite.py",
+    "testing/test_assertrewrite_coverage.py"
+   ],
+   "source_lines": 158,
+   "other_files": []
+  },
+  {
+   "pr": 14449,
+   "pr_title": "[PR #14443/a481f264 backport][9.0.x] Fix strict options from addopts",
+   "pr_created_at": "2026-05-08T20:40:45Z",
+   "merged_at": "2026-05-09T17:02:31Z",
+   "merge_commit": "6507c70bb24ed0d202947c4c2f3e755c58c1f294",
+   "issues": [
+    14442
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14460,
+   "pr_title": "pastebin: deprecate `--pastebin`",
+   "pr_created_at": "2026-05-10T20:44:07Z",
+   "merged_at": "2026-05-11T11:44:32Z",
+   "merge_commit": "856da14ae04ca61dfb61feccbb8292ac66af1346",
+   "issues": [
+    14434
+   ],
+   "excluded": null,
+   "issue": 14434,
+   "title": "Deprecate pastebin plugin",
+   "issue_created_at": "2026-05-01T14:59:33Z",
+   "source_files": [
+    "src/_pytest/deprecated.py",
+    "src/_pytest/pastebin.py"
+   ],
+   "test_files": [
+    "testing/test_pastebin.py"
+   ],
+   "source_lines": 10,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 8,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      8,
+      8
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      8,
+      8
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1109,
+   "comments_before_as_of": 2
+  },
+  {
+   "pr": 14466,
+   "pr_title": "fix approx rel for timedelta: accept float, compute rel * expected",
+   "pr_created_at": "2026-05-12T00:43:44Z",
+   "merged_at": "2026-05-12T09:24:13Z",
+   "merge_commit": "2c555d62fa2c51ccb0c4c1cdd6243149ce4ffa97",
+   "issues": [
+    14462
+   ],
+   "excluded": null,
+   "issue": 14462,
+   "title": "approx with timedelta: rel parameter treated as absolute tolerance despite its name",
+   "issue_created_at": "2026-05-11T16:05:41Z",
+   "source_files": [
+    "src/_pytest/python_api.py"
+   ],
+   "test_files": [
+    "testing/python/approx.py"
+   ],
+   "source_lines": 43,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 13,
+    "pass_to_pass": 99,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      13
+     ],
+     "pass_to_pass": [
+      99,
+      99
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      13,
+      13
+     ],
+     "pass_to_pass": [
+      99,
+      99
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1708,
+   "comments_before_as_of": 2
+  },
+  {
+   "pr": 14467,
+   "pr_title": "docs: clarify subtests progress output",
+   "pr_created_at": "2026-05-12T07:54:49Z",
+   "merged_at": "2026-05-12T14:02:31Z",
+   "merge_commit": "7df5d80ff3a98714a1d3cdbe82941229e511f4b3",
+   "issues": [
+    13902
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13902,
+   "title": "Documentation shows incorrect pytest output color for subtests",
+   "issue_created_at": "2025-11-09T12:39:41Z"
+  },
+  {
+   "pr": 14468,
+   "pr_title": "[PR #14467/7df5d80f backport][9.0.x] docs: clarify subtests progress output",
+   "pr_created_at": "2026-05-12T14:02:47Z",
+   "merged_at": "2026-05-23T14:02:59Z",
+   "merge_commit": "a86f3c3eebf98398c5ea431375a1cd972a3e2edc",
+   "issues": [
+    13902
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14472,
+   "pr_title": "Fix _as_numpy_array: use variable obj instead of string literal \"obj\"",
+   "pr_created_at": "2026-05-13T00:59:41Z",
+   "merged_at": "2026-05-14T09:40:34Z",
+   "merge_commit": "21be7a259424e509e3d667082a138bcc8fc45c00",
+   "issues": [
+    14456
+   ],
+   "excluded": "no test change under testing/",
+   "issue": 14456,
+   "title": "_as_numpy_array: hasattr uses string literal 'obj' instead of variable",
+   "issue_created_at": "2026-05-10T04:58:24Z",
+   "source_files": [
+    "src/_pytest/python_api.py"
+   ],
+   "test_files": [],
+   "source_lines": 2,
+   "other_files": []
+  },
+  {
+   "pr": 14475,
+   "pr_title": "fix mark expression scanner: search for backslash in string value, not entire input",
+   "pr_created_at": "2026-05-13T07:08:00Z",
+   "merged_at": "2026-05-13T15:42:39Z",
+   "merge_commit": "984cabfaccf8aa69fe49097ed3d07bd60d05f240",
+   "issues": [
+    14474
+   ],
+   "excluded": null,
+   "issue": 14474,
+   "title": "mark expression scanner: backslash check in string literal searches entire input instead of the string value",
+   "issue_created_at": "2026-05-13T07:01:16Z",
+   "source_files": [
+    "src/_pytest/mark/expression.py"
+   ],
+   "test_files": [
+    "testing/test_mark_expression.py"
+   ],
+   "source_lines": 4,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 140,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      140,
+      140
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      140,
+      140
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 2337,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14478,
+   "pr_title": "[PR #14475/984cabfa backport][9.0.x] fix mark expression scanner: search for backslash in string value, not entire input",
+   "pr_created_at": "2026-05-13T15:42:55Z",
+   "merged_at": "2026-05-14T09:25:38Z",
+   "merge_commit": "c1108ac273c04eebda474b09e7e228f3b849ed7b",
+   "issues": [
+    14474
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14480,
+   "pr_title": "[PR #14472/21be7a25 backport][9.0.x] Fix _as_numpy_array: use variable obj instead of string literal \"obj\"",
+   "pr_created_at": "2026-05-14T09:40:47Z",
+   "merged_at": "2026-06-02T13:18:55Z",
+   "merge_commit": "b12824c815e75bd034fb51970e23dff2d2008d2b",
+   "issues": [
+    14456
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14484,
+   "pr_title": "fix junitxml bin_xml_escape: supplementary plane characters incorrectly escaped",
+   "pr_created_at": "2026-05-15T02:33:15Z",
+   "merged_at": "2026-05-28T14:00:25Z",
+   "merge_commit": "4748bb15b9053a791c04783d4d84eba512c7cf79",
+   "issues": [
+    14483
+   ],
+   "excluded": null,
+   "issue": 14483,
+   "title": "bin_xml_escape: supplementary plane characters (U+10000+) incorrectly escaped due to wrong unicode escape in regex",
+   "issue_created_at": "2026-05-15T02:13:13Z",
+   "source_files": [
+    "src/_pytest/junitxml.py"
+   ],
+   "test_files": [
+    "testing/test_junitxml.py"
+   ],
+   "source_lines": 4,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 134,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      134,
+      134
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      134,
+      134
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 2105,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14485,
+   "pr_title": "docs: clarify hookimpl specname limitation",
+   "pr_created_at": "2026-05-15T20:14:49Z",
+   "merged_at": "2026-05-23T13:16:12Z",
+   "merge_commit": "0a4f8891de22ae9bbf7f89252f64ba50080bbedb",
+   "issues": [
+    11307
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 11307,
+   "title": "`pytest.hookimpl` does not respect the `specname` keyword argument",
+   "issue_created_at": "2023-08-11T11:38:51Z"
+  },
+  {
+   "pr": 14486,
+   "pr_title": "docs: clarify stdlib monkeypatch guidance",
+   "pr_created_at": "2026-05-15T20:20:27Z",
+   "merged_at": "2026-05-23T13:15:39Z",
+   "merge_commit": "b6c4d919f53cc2100da6eb6b74e3d700008f7c54",
+   "issues": [
+    11022
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 11022,
+   "title": "Document dangers of monkeypatching/mocking stdlib",
+   "issue_created_at": "2023-05-19T11:00:35Z"
+  },
+  {
+   "pr": 14487,
+   "pr_title": "docs: document doctest fixture parametrization limit",
+   "pr_created_at": "2026-05-15T20:22:02Z",
+   "merged_at": "2026-05-23T13:15:00Z",
+   "merge_commit": "28c1700408767f87e4cf3f10c02afb1ab21f9123",
+   "issues": [
+    13038
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13038,
+   "title": "Support parameterized fixtures in doctests",
+   "issue_created_at": "2024-12-07T16:51:04Z"
+  },
+  {
+   "pr": 14493,
+   "pr_title": "Fix Code.getargs() treating co_flags bitmask values as counts",
+   "pr_created_at": "2026-05-17T11:49:59Z",
+   "merged_at": "2026-05-30T11:49:43Z",
+   "merge_commit": "f976bb67b293cf358e2fbd0352638e2f5a9da8e0",
+   "issues": [
+    14492
+   ],
+   "excluded": null,
+   "issue": 14492,
+   "title": "Code.getargs: CO_VARARGS/CO_VARKEYWORDS bit flags treated as counts, local vars leak into argument list",
+   "issue_created_at": "2026-05-17T10:34:09Z",
+   "source_files": [
+    "src/_pytest/_code/code.py"
+   ],
+   "test_files": [
+    "testing/code/test_code.py"
+   ],
+   "source_lines": 5,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 16,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      16,
+      16
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      16,
+      16
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1578,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14501,
+   "pr_title": "Fix junitxml count for teardown errors",
+   "pr_created_at": "2026-05-21T06:50:23Z",
+   "merged_at": "2026-05-24T13:57:35Z",
+   "merge_commit": "e2dbcb27f9d44ec510dae964672499c93f78bbc1",
+   "issues": [
+    3850
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 3850,
+   "title": "junit xml \"tests\" number seems wrong if only teardown fails",
+   "issue_created_at": "2018-08-22T07:34:12Z"
+  },
+  {
+   "pr": 14503,
+   "pr_title": "docs: link the current pytest-xdist newhooks.py from the hooks how-to",
+   "pr_created_at": "2026-05-23T01:02:11Z",
+   "merged_at": "2026-05-23T12:18:03Z",
+   "merge_commit": "f15e1a834efec49250d8413453e9f4ee7b948610",
+   "issues": [
+    14465
+   ],
+   "excluded": "no source change under src/",
+   "issue": 14465,
+   "title": "Hooks how-to links to old xdist version",
+   "issue_created_at": "2026-05-11T22:59:17Z",
+   "source_files": [],
+   "test_files": [],
+   "source_lines": 0,
+   "other_files": []
+  },
+  {
+   "pr": 14504,
+   "pr_title": "Improve assertion diffs for mapping objects",
+   "pr_created_at": "2026-05-23T11:50:20Z",
+   "merged_at": "2026-05-23T12:39:19Z",
+   "merge_commit": "ec0f6d01aef6f324b33be1ba64105edccf537c4b",
+   "issues": [
+    14461
+   ],
+   "excluded": null,
+   "issue": 14461,
+   "title": "Support generic mapping in builtin assertrepr compare",
+   "issue_created_at": "2026-05-11T09:05:29Z",
+   "source_files": [
+    "src/_pytest/assertion/util.py"
+   ],
+   "test_files": [
+    "testing/test_assertion.py"
+   ],
+   "source_lines": 10,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 170,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      170,
+      170
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      170,
+      170
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 3656,
+   "comments_before_as_of": 4
+  },
+  {
+   "pr": 14527,
+   "pr_title": "Add official support for Python 3.15",
+   "pr_created_at": "2026-05-27T08:23:36Z",
+   "merged_at": "2026-05-27T19:53:15Z",
+   "merge_commit": "ea98f72badc085bdff17c784cfe9a611af5196a4",
+   "issues": [
+    14524
+   ],
+   "excluded": "changes files outside src/testing/changelog/doc/AUTHORS (.github/workflows/test.yml, pyproject.toml, tox.ini)",
+   "issue": 14524,
+   "title": "Python 3.15 support",
+   "issue_created_at": "2026-05-26T12:13:10Z",
+   "source_files": [],
+   "test_files": [
+    "testing/test_assertrewrite.py"
+   ],
+   "source_lines": 0,
+   "other_files": [
+    ".github/workflows/test.yml",
+    "pyproject.toml",
+    "tox.ini"
+   ]
+  },
+  {
+   "pr": 14532,
+   "pr_title": "[PR #14484/4748bb15 backport][9.0.x] fix junitxml bin_xml_escape: supplementary plane characters incorrectly escaped",
+   "pr_created_at": "2026-05-28T14:00:43Z",
+   "merged_at": "2026-05-28T14:19:03Z",
+   "merge_commit": "cc46ed4202af31a207d53bdf8f265a28e864068d",
+   "issues": [
+    14483
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14535,
+   "pr_title": "[PR #14493/f976bb67 backport][9.0.x] Fix Code.getargs() treating co_flags bitmask values as counts",
+   "pr_created_at": "2026-05-30T11:49:55Z",
+   "merged_at": "2026-05-30T12:06:39Z",
+   "merge_commit": "76fefd0e57df8e49768e0b7673044125c28727f4",
+   "issues": [
+    14492
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14539,
+   "pr_title": "Clarify request fixture in indirect parametrization docs",
+   "pr_created_at": "2026-05-31T14:53:41Z",
+   "merged_at": "2026-06-04T12:49:31Z",
+   "merge_commit": "3422c67a3a46ccb4b5549c88821d5d768843418e",
+   "issues": [
+    13155
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13155,
+   "title": "DOCS, BUG: Using and clarifying the `request` fixture.",
+   "issue_created_at": "2025-01-21T15:35:31Z"
+  },
+  {
+   "pr": 14540,
+   "pr_title": "Fix module fixtures with --doctest-modules",
+   "pr_created_at": "2026-06-01T03:10:57Z",
+   "merged_at": "2026-06-08T13:04:30Z",
+   "merge_commit": "2ce9c6d94eb691ea4da7f91f330602cbb67a6daf",
+   "issues": [
+    14533
+   ],
+   "excluded": "changes files outside src/testing/changelog/doc/AUTHORS (pyproject.toml, tox.ini)",
+   "issue": 14533,
+   "title": "enabling doctest-modules causes fixture to not be found",
+   "issue_created_at": "2026-05-29T20:55:48Z",
+   "source_files": [
+    "src/_pytest/doctest.py",
+    "src/_pytest/fixtures.py"
+   ],
+   "test_files": [
+    "testing/test_doctest.py"
+   ],
+   "source_lines": 7,
+   "other_files": [
+    "pyproject.toml",
+    "tox.ini"
+   ]
+  },
+  {
+   "pr": 14555,
+   "pr_title": "[PR #14539/3422c67a backport][9.0.x] Clarify request fixture in indirect parametrization docs",
+   "pr_created_at": "2026-06-04T12:49:45Z",
+   "merged_at": "2026-06-04T12:52:30Z",
+   "merge_commit": "9577bd9d076669bd7443b396004bc17ed868b66f",
+   "issues": [
+    13155
+   ],
+   "excluded": "merged into 9.0.x, not main"
+  },
+  {
+   "pr": 14566,
+   "pr_title": "fixtures: order fixture override chains by visibility",
+   "pr_created_at": "2026-06-06T19:14:23Z",
+   "merged_at": "2026-06-07T18:50:56Z",
+   "merge_commit": "e0fab11744614da1b0420c27bb7a9895c89fcab5",
+   "issues": [
+    14513
+   ],
+   "excluded": null,
+   "issue": 14513,
+   "title": "Fixture override order should be determined by visibility?",
+   "issue_created_at": "2026-05-24T17:05:51Z",
+   "source_files": [
+    "src/_pytest/fixtures.py"
+   ],
+   "test_files": [
+    "testing/python/fixtures.py"
+   ],
+   "source_lines": 50,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 218,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      218,
+      218
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      218,
+      218
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 4331,
+   "comments_before_as_of": 2
+  },
+  {
+   "pr": 14568,
+   "pr_title": "Add `pytest.register_fixture`",
+   "pr_created_at": "2026-06-06T19:30:49Z",
+   "merged_at": "2026-06-11T15:11:39Z",
+   "merge_commit": "4a809d9c892f6abb5ba92b77b06f1dd878f4660a",
+   "issues": [
+    12376
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12376,
+   "title": "Allow to dynamically create fixture in plugin",
+   "issue_created_at": "2024-05-27T12:47:09Z"
+  },
+  {
+   "pr": 14576,
+   "pr_title": "Fix isset() to cover dict.items() and dict.keys() in set comparisons",
+   "pr_created_at": "2026-06-08T11:15:47Z",
+   "merged_at": "2026-06-25T13:23:44Z",
+   "merge_commit": "9db664649af9b24d496fb7ad482b66c0c341a28c",
+   "issues": [
+    12860
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12860,
+   "title": "Better reporting for \"dict subset\" comparison",
+   "issue_created_at": "2024-10-07T11:21:19Z"
+  },
+  {
+   "pr": 14598,
+   "pr_title": "docs: clarify confcutdir plugin discovery cutoff",
+   "pr_created_at": "2026-06-14T13:10:44Z",
+   "merged_at": "2026-07-27T21:28:13Z",
+   "merge_commit": "aa09fa2acec06243caad56a034ead3a2fdf9f1e2",
+   "issues": [
+    12857
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12857,
+   "title": "Documentation: Needs to be updated to reflect how --confcutdir works since 7.4.0",
+   "issue_created_at": "2024-10-07T02:22:50Z"
+  },
+  {
+   "pr": 14611,
+   "pr_title": "mark/structures: undo non-collection-argvalues type-check time deprecation due to mypy bug",
+   "pr_created_at": "2026-06-16T11:47:37Z",
+   "merged_at": "2026-06-16T14:53:35Z",
+   "merge_commit": "974ed48b696d706b7e7cc834ddca9bb0edd488a4",
+   "issues": [
+    14606
+   ],
+   "excluded": "reference verification failed: Task pytest-14606 is unusable: The fix's tests do not fail before the fix.",
+   "issue": 14606,
+   "title": "pytest 9.1.0: new `parametrize` `argvalues` typing produces a spurious mypy error for a list of class objects with differing constructor signatures",
+   "issue_created_at": "2026-06-15T15:43:50Z",
+   "source_files": [
+    "src/_pytest/mark/structures.py"
+   ],
+   "test_files": [
+    "testing/typing_checks.py"
+   ],
+   "source_lines": 26,
+   "other_files": []
+  },
+  {
+   "pr": 14612,
+   "pr_title": "[PR #14611/974ed48b backport][9.1.x] mark/structures: undo non-collection-argvalues type-check time deprecation due to mypy bug",
+   "pr_created_at": "2026-06-16T14:53:52Z",
+   "merged_at": "2026-06-16T15:14:20Z",
+   "merge_commit": "79fbf93b666cac5f27c9dad047943d47b766c8d5",
+   "issues": [
+    14606
+   ],
+   "excluded": "merged into 9.1.x, not main"
+  },
+  {
+   "pr": 14622,
+   "pr_title": "fix: load test* subdir conftests when initial path is missing",
+   "pr_created_at": "2026-06-18T12:27:38Z",
+   "merged_at": "2026-06-19T09:15:50Z",
+   "merge_commit": "b375b79ec913630af83ceff58944347408a6534a",
+   "issues": [
+    14608
+   ],
+   "excluded": null,
+   "issue": 14608,
+   "title": "pytest 9.1.0: conftest.py `addoption` regressed in nested directories",
+   "issue_created_at": "2026-06-15T17:17:30Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py"
+   ],
+   "test_files": [
+    "testing/test_conftest.py"
+   ],
+   "source_lines": 18,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 56,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      56,
+      56
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      56,
+      56
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 948,
+   "comments_before_as_of": 1
+  },
+  {
+   "pr": 14624,
+   "pr_title": "[PR #14622/b375b79e backport][9.1.x] fix: load test* subdir conftests when initial path is missing",
+   "pr_created_at": "2026-06-19T09:16:04Z",
+   "merged_at": "2026-06-19T09:32:47Z",
+   "merge_commit": "1b82d1694fce22385ee7a4287917fbafbaf2e757",
+   "issues": [
+    14608
+   ],
+   "excluded": "merged into 9.1.x, not main"
+  },
+  {
+   "pr": 14639,
+   "pr_title": "Fix off-by-one in trailing assertion diff skipping (#14637)",
+   "pr_created_at": "2026-06-22T15:48:02Z",
+   "merged_at": "2026-06-27T14:29:07Z",
+   "merge_commit": "3fa8d9b15b733aadb8a043cca3e98447804e1f28",
+   "issues": [
+    14637
+   ],
+   "excluded": null,
+   "issue": 14637,
+   "title": "assertion diff: trailing character skip fails when first characters differ (off-by-one in `left[-i]` when `i=0`)",
+   "issue_created_at": "2026-06-22T11:29:08Z",
+   "source_files": [
+    "src/_pytest/assertion/compare_text.py"
+   ],
+   "test_files": [
+    "testing/test_assertion.py"
+   ],
+   "source_lines": 2,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 175,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      175,
+      175
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      175,
+      175
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 2265,
+   "comments_before_as_of": 1
+  },
+  {
+   "pr": 14645,
+   "pr_title": "fix: deduplicate Directory nodes on re-collection to preserve fixture identity (#14635)",
+   "pr_created_at": "2026-06-23T04:44:30Z",
+   "merged_at": "2026-07-22T14:59:43Z",
+   "merge_commit": "a933cf5de4d64192d1d588a851ca4e76eec71efc",
+   "issues": [
+    14635
+   ],
+   "excluded": null,
+   "issue": 14635,
+   "title": "Error collecting tests on 9.1.1 - fixtures not found when a parent directory appears multiple times in a argument list ",
+   "issue_created_at": "2026-06-21T18:38:28Z",
+   "source_files": [
+    "src/_pytest/main.py"
+   ],
+   "test_files": [
+    "testing/test_conftest.py"
+   ],
+   "source_lines": 24,
+   "other_files": [],
+   "marked_duplicate": "{}",
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 57,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      57,
+      57
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      57,
+      57
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 8675,
+   "comments_before_as_of": 4
+  },
+  {
+   "pr": 14646,
+   "pr_title": "Error on top-level options in pytest.toml",
+   "pr_created_at": "2026-06-23T11:47:09Z",
+   "merged_at": "2026-06-26T14:19:29Z",
+   "merge_commit": "7660d7d5ce47cc4fcf3f5672954484744c9b59c8",
+   "issues": [
+    14638
+   ],
+   "excluded": null,
+   "issue": 14638,
+   "title": "pytest.toml without section header leads to silently ignored options",
+   "issue_created_at": "2026-06-22T14:09:04Z",
+   "source_files": [
+    "src/_pytest/config/findpaths.py"
+   ],
+   "test_files": [
+    "testing/test_config.py"
+   ],
+   "source_lines": 14,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 2,
+    "pass_to_pass": 254,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      2
+     ],
+     "pass_to_pass": [
+      254,
+      254
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      2,
+      2
+     ],
+     "pass_to_pass": [
+      254,
+      254
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1489,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14649,
+   "pr_title": "Fix __tracebackhide__ not respected in ExceptionGroup sub-exception tracebacks",
+   "pr_created_at": "2026-06-24T08:47:15Z",
+   "merged_at": "2026-08-25T07:13:55Z",
+   "merge_commit": "75e6815c55ac66dacf033ababa40c2a91b82e99c",
+   "issues": [
+    14036
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 14036,
+   "title": "ExceptionGroups do not respect `__tracebackhide__`",
+   "issue_created_at": "2025-12-08T12:33:22Z"
+  },
+  {
+   "pr": 14661,
+   "pr_title": "Reject implicit option destination conflicts",
+   "pr_created_at": "2026-06-29T10:28:28Z",
+   "merged_at": "2026-07-22T12:46:21Z",
+   "merge_commit": "532b20103ecf9972f752353f20088c5cc878003b",
+   "issues": [
+    12824,
+    13393
+   ],
+   "excluded": "closes 2 issues"
+  },
+  {
+   "pr": 14670,
+   "pr_title": "Bugfix 14412 subtests timing",
+   "pr_created_at": "2026-07-02T00:23:40Z",
+   "merged_at": "2026-10-06T12:44:32Z",
+   "merge_commit": "b4a8bc6b823c78951f781a900ec0a533e154693b",
+   "issues": [
+    14412
+   ],
+   "excluded": "reference verification failed: error: patch failed: src/_pytest/terminal.py:410\nerror: src/_pytest/terminal.py: patch does not apply",
+   "issue": 14412,
+   "title": "Incorrect timing info when using subtests and console_output_style='times'",
+   "issue_created_at": "2026-04-22T22:09:21Z",
+   "source_files": [
+    "src/_pytest/terminal.py"
+   ],
+   "test_files": [
+    "testing/test_terminal.py"
+   ],
+   "source_lines": 22,
+   "other_files": []
+  },
+  {
+   "pr": 14692,
+   "pr_title": "Allow int for ``truncation_limit_lines`` and ``truncation_limit_chars`` in TOML",
+   "pr_created_at": "2026-07-09T18:24:41Z",
+   "merged_at": "2026-07-31T07:56:04Z",
+   "merge_commit": "f306da747e70403ca75ae6d9e1dd61f2ad1b8979",
+   "issues": [
+    14675
+   ],
+   "excluded": "reference verification failed: error: patch failed: testing/test_assertion.py:1840\nerror: testing/test_assertion.py: patch does not apply",
+   "issue": 14675,
+   "title": "`truncation_limit_lines` and `truncation_limit_chars` should accept integer values in .toml configs",
+   "issue_created_at": "2026-07-04T11:31:40Z",
+   "source_files": [
+    "src/_pytest/assertion/__init__.py",
+    "src/_pytest/assertion/_typing.py",
+    "src/_pytest/assertion/truncate.py"
+   ],
+   "test_files": [
+    "testing/test_assertion.py"
+   ],
+   "source_lines": 49,
+   "other_files": []
+  },
+  {
+   "pr": 14694,
+   "pr_title": "Fix rootdir conftest fixtures not visible to items collected outside the rootdir",
+   "pr_created_at": "2026-07-11T20:47:06Z",
+   "merged_at": "2026-07-24T13:32:49Z",
+   "merge_commit": "ef052d0bc481af97afb3fbd2aae24d8abce08604",
+   "issues": [
+    14683
+   ],
+   "excluded": "reference verification failed: error: patch failed: testing/test_conftest.py:911\nerror: testing/test_conftest.py: patch does not apply",
+   "issue": 14683,
+   "title": "Variables injected in doctest_namespace no longer loaded in Pytest 9.1.x",
+   "issue_created_at": "2026-07-06T15:53:16Z",
+   "source_files": [
+    "src/_pytest/fixtures.py"
+   ],
+   "test_files": [
+    "testing/test_conftest.py",
+    "testing/test_doctest.py"
+   ],
+   "source_lines": 36,
+   "other_files": []
+  },
+  {
+   "pr": 14702,
+   "pr_title": "fix: resolve doctest locations for fixture definitions",
+   "pr_created_at": "2026-07-13T05:43:52Z",
+   "merged_at": "2026-07-21T12:46:11Z",
+   "merge_commit": "e7355d70771b5f34f78d7012f73bdc8eb79574d6",
+   "issues": [
+    14700
+   ],
+   "excluded": "reference verification failed: Task pytest-14700 is unusable: The fix's tests do not fail before the fix.",
+   "issue": 14700,
+   "title": "`line is not None` assertion in reports.py failing in `jaraco.test`, since pytest 8.4, on Python 3.12",
+   "issue_created_at": "2026-07-13T04:10:03Z",
+   "source_files": [
+    "src/_pytest/doctest.py"
+   ],
+   "test_files": [
+    "testing/test_doctest.py"
+   ],
+   "source_lines": 12,
+   "other_files": []
+  },
+  {
+   "pr": 14725,
+   "pr_title": "Docs: align pytest.mark.xfail and skip parameter signatures with reality (#10094)",
+   "pr_created_at": "2026-07-19T08:25:15Z",
+   "merged_at": "2026-07-23T10:39:26Z",
+   "merge_commit": "a53a4d99c4ded7f30b712d57068d92243a731ce7",
+   "issues": [
+    10094
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 10094,
+   "title": "Reference documentation, typing annotations and reality for `pytest.mark.xfail()` don’t match",
+   "issue_created_at": "2022-07-01T09:08:37Z"
+  },
+  {
+   "pr": 14730,
+   "pr_title": "fix: keep pytest_terminal_summary under --no-summary",
+   "pr_created_at": "2026-07-19T15:02:54Z",
+   "merged_at": "2026-07-23T09:36:37Z",
+   "merge_commit": "6f1b078537cf4ab14d0a7b29972c4e73f23a9011",
+   "issues": [
+    14724
+   ],
+   "excluded": null,
+   "issue": 14724,
+   "title": "`--no-summary` disables the `pytest_terminal_summary` hook, silencing third-party plugins as well as pytest's own summary",
+   "issue_created_at": "2026-07-19T07:55:46Z",
+   "source_files": [
+    "src/_pytest/terminal.py"
+   ],
+   "test_files": [
+    "testing/test_terminal.py"
+   ],
+   "source_lines": 28,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 219,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      219,
+      219
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      219,
+      219
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 3794,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14738,
+   "pr_title": "Docs: Document that pytest_assertrepr_compare is called on passing asserts",
+   "pr_created_at": "2026-07-20T18:59:42Z",
+   "merged_at": "2026-07-21T09:55:59Z",
+   "merge_commit": "ec12ff382ccddcaa1f9308f965e9005b1a4f087e",
+   "issues": [
+    12062
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12062,
+   "title": "`pytest_assertrepr_compare` is executed on passing assertions when a `pytest_assertion_pass` hook is defined",
+   "issue_created_at": "2024-03-04T07:18:24Z"
+  },
+  {
+   "pr": 14744,
+   "pr_title": "Fix missing traceback source for code with cwd-relative filenames",
+   "pr_created_at": "2026-07-21T13:18:14Z",
+   "merged_at": "2026-07-21T13:32:03Z",
+   "merge_commit": "34b6a4e5354dbd0e169de7cd22425bc34038dbf6",
+   "issues": [
+    1139
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 1139,
+   "title": "Cython tracebacks are not shown correctly",
+   "issue_created_at": "2015-10-16T09:56:12Z"
+  },
+  {
+   "pr": 14745,
+   "pr_title": "Add regression test for #2568 (properties evaluated during collection)",
+   "pr_created_at": "2026-07-21T13:22:53Z",
+   "merged_at": "2026-07-21T13:42:09Z",
+   "merge_commit": "f1211ba21d1df2f55cf2ba1523b9d7b6c6a9ef56",
+   "issues": [
+    2568
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 2568,
+   "title": "unintended execution during parsing?",
+   "issue_created_at": "2017-07-12T19:16:31Z"
+  },
+  {
+   "pr": 14746,
+   "pr_title": "Reduce fixture setups/teardowns: reorder parametrized tests by param value, not index",
+   "pr_created_at": "2026-07-21T14:58:15Z",
+   "merged_at": "2026-07-27T18:02:43Z",
+   "merge_commit": "d02c36266339ec7fab376db2e77d4e55ea165384",
+   "issues": [
+    661,
+    896,
+    3862,
+    6979,
+    8914
+   ],
+   "excluded": "closes 5 issues"
+  },
+  {
+   "pr": 14747,
+   "pr_title": "Fix pytest.warns re-emitting warnings with module=\"warnings\"",
+   "pr_created_at": "2026-07-21T15:39:48Z",
+   "merged_at": "2026-07-22T05:54:50Z",
+   "merge_commit": "1c36631c68427619646d9f12904cc513e48d472b",
+   "issues": [
+    11933,
+    12897
+   ],
+   "excluded": "closes 2 issues"
+  },
+  {
+   "pr": 14748,
+   "pr_title": "Fix elision of long collections in assertion messages with -vv",
+   "pr_created_at": "2026-07-21T17:25:15Z",
+   "merged_at": "2026-07-25T15:25:48Z",
+   "merge_commit": "36704f9b54c40b3de715f5d5d28666faf566b843",
+   "issues": [
+    12322
+   ],
+   "excluded": "closing reference points to a pull request",
+   "issue": 12322,
+   "title": "WIP: Truncate objects the same way we truncate other messages",
+   "issue_created_at": "2024-05-14T09:14:55Z"
+  },
+  {
+   "pr": 14752,
+   "pr_title": "Consider entry points for PYTEST_PLUGINS and pytest_plugins",
+   "pr_created_at": "2026-07-21T21:02:58Z",
+   "merged_at": "2026-07-22T05:40:08Z",
+   "merge_commit": "198eff1604e7b649e3fdcf306306517070d19235",
+   "issues": [
+    12615,
+    12616,
+    12624
+   ],
+   "excluded": "closes 3 issues"
+  },
+  {
+   "pr": 14753,
+   "pr_title": "Make `Metafunc.parametrize` keyword-only from indirect onwards",
+   "pr_created_at": "2026-07-21T21:06:51Z",
+   "merged_at": "2026-07-22T08:31:13Z",
+   "merge_commit": "a56281b272c5cea1c0464ab9f1a824ceea7fec1e",
+   "issues": [
+    8593
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 8593,
+   "title": "Improve error output when specifying multiple argument strings with parametrize",
+   "issue_created_at": "2021-04-26T12:34:33Z"
+  },
+  {
+   "pr": 14759,
+   "pr_title": "Document firstresult behavior for report (de)serialization hooks",
+   "pr_created_at": "2026-07-22T10:17:36Z",
+   "merged_at": "2026-07-22T12:18:53Z",
+   "merge_commit": "8d40684d1f997e62758785aebb3132c2f5b712e1",
+   "issues": [
+    6787
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 6787,
+   "title": "doc: hookspec: clarify/revisit explanation for firstresult hooks",
+   "issue_created_at": "2020-02-21T12:04:12Z"
+  },
+  {
+   "pr": 14760,
+   "pr_title": "Apply warning filters to `pytest_configure`",
+   "pr_created_at": "2026-07-22T10:21:46Z",
+   "merged_at": "2026-07-22T20:32:10Z",
+   "merge_commit": "b4e846616cbb0ba74dc548f7066b09d820f5dc05",
+   "issues": [
+    10128
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 10128,
+   "title": "Possible missing warning filters in pytest_configure",
+   "issue_created_at": "2022-07-13T10:19:58Z"
+  },
+  {
+   "pr": 14776,
+   "pr_title": "Apply filterwarnings whilst importing plugins",
+   "pr_created_at": "2026-07-24T12:32:44Z",
+   "merged_at": "2026-08-04T19:54:30Z",
+   "merge_commit": "98b357f69e380da908740a212288d73b2ee06687",
+   "issues": [
+    12697
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12697,
+   "title": "Surprisingly, pytest doesn't collect warnings when importing the package for plugins",
+   "issue_created_at": "2024-08-07T01:15:20Z"
+  },
+  {
+   "pr": 14780,
+   "pr_title": "Avoid traceback formatting for xfail(run=False)",
+   "pr_created_at": "2026-07-24T22:38:20Z",
+   "merged_at": "2026-08-12T19:28:35Z",
+   "merge_commit": "d45fc1c74989e7c71093cc8c24a775c0cf56bba6",
+   "issues": [
+    9436
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 9436,
+   "title": "Performance: Don't compute traceback if it's not going to be printed",
+   "issue_created_at": "2021-12-24T12:46:59Z"
+  },
+  {
+   "pr": 14781,
+   "pr_title": "Fix duplicated exception chain output for exceptions without a traceback",
+   "pr_created_at": "2026-07-25T05:50:03Z",
+   "merged_at": "2026-08-11T19:12:30Z",
+   "merge_commit": "0d6fbdeffa57c796123f62f81f7dd370d9b7ecdc",
+   "issues": [
+    8321
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 8321,
+   "title": "Exceptions without a traceback print multiple times if chained",
+   "issue_created_at": "2021-02-05T02:33:27Z"
+  },
+  {
+   "pr": 14807,
+   "pr_title": "refactor: dispatch config file loading by filename, then suffix",
+   "pr_created_at": "2026-07-31T05:14:48Z",
+   "merged_at": "2026-08-06T12:47:33Z",
+   "merge_commit": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+   "issues": [
+    11502,
+    14705,
+    14716
+   ],
+   "excluded": "closes 3 issues"
+  },
+  {
+   "pr": 14810,
+   "pr_title": "doc: add pyproject.toml entry-point example to plugin documentation (fixes #10721)",
+   "pr_created_at": "2026-07-31T13:39:20Z",
+   "merged_at": "2026-08-03T12:08:34Z",
+   "merge_commit": "bf2ca20b6ff0b98438edbe8496a622853c2dc2a7",
+   "issues": [
+    10721
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 10721,
+   "title": "Incorrect documentation describing registering entry points with pyproject.toml",
+   "issue_created_at": "2023-02-09T10:36:06Z"
+  },
+  {
+   "pr": 14811,
+   "pr_title": "fix config: add deprecation warning for non-string value in string-typed ini option",
+   "pr_created_at": "2026-07-31T14:44:14Z",
+   "merged_at": "2026-08-25T06:56:31Z",
+   "merge_commit": "977575388358e8c00b77a397546304c91dc5794b",
+   "issues": [
+    14808
+   ],
+   "excluded": null,
+   "issue": 14808,
+   "title": "_getini_ini: \"string\" type returns list silently instead of raising TypeError",
+   "issue_created_at": "2026-07-31T08:15:28Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py",
+    "src/_pytest/deprecated.py"
+   ],
+   "test_files": [
+    "testing/test_config.py"
+   ],
+   "source_lines": 13,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 279,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      279,
+      279
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      279,
+      279
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 8397,
+   "comments_before_as_of": 2
+  },
+  {
+   "pr": 14824,
+   "pr_title": "Classify plugin startup import failures (#993)",
+   "pr_created_at": "2026-08-01T12:11:02Z",
+   "merged_at": "2026-08-30T20:29:53Z",
+   "merge_commit": "5d85267e3539968dad33937295b0a77b6c7eb7b3",
+   "issues": [
+    993
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 993,
+   "title": "ImportError raised by plugins make pytest return EXIT_TESTSFAILED",
+   "issue_created_at": "2015-09-10T19:19:55Z"
+  },
+  {
+   "pr": 14825,
+   "pr_title": "docs: fix tox package_env references",
+   "pr_created_at": "2026-08-01T18:42:13Z",
+   "merged_at": "2026-08-05T13:58:23Z",
+   "merge_commit": "9072c4b7bb0832f6d752520a762469babe7a0c44",
+   "issues": [
+    14818
+   ],
+   "excluded": "no source change under src/",
+   "issue": 14818,
+   "title": "changelog: `:ref:`package_env`` cannot resolve (tox target, no local label)",
+   "issue_created_at": "2026-07-31T20:06:18Z",
+   "source_files": [],
+   "test_files": [],
+   "source_lines": 0,
+   "other_files": []
+  },
+  {
+   "pr": 14829,
+   "pr_title": "Fix duplicated exception chain output when an exception group has a cause",
+   "pr_created_at": "2026-08-02T15:42:30Z",
+   "merged_at": "2026-08-16T22:10:33Z",
+   "merge_commit": "e739014f38d284f1ce57745cdd4e13392fb56165",
+   "issues": [
+    14828
+   ],
+   "excluded": "reference verification failed: error: patch failed: testing/code/test_excinfo.py:1592\nerror: testing/code/test_excinfo.py: patch does not apply",
+   "issue": 14828,
+   "title": "Exception groups raised from another exception print their cause chain twice",
+   "issue_created_at": "2026-08-02T15:27:10Z",
+   "source_files": [
+    "src/_pytest/_code/code.py"
+   ],
+   "test_files": [
+    "testing/code/test_excinfo.py",
+    "testing/test_unittest.py"
+   ],
+   "source_lines": 4,
+   "other_files": []
+  },
+  {
+   "pr": 14831,
+   "pr_title": "[PR #14810/bf2ca20b backport][9.1.x] doc: add pyproject.toml entry-point example to plugin documentation (fixes #10721)",
+   "pr_created_at": "2026-08-03T12:08:47Z",
+   "merged_at": "2026-08-03T12:31:13Z",
+   "merge_commit": "84a7f4b478c8aba5819d1d0b18806c65886b6f18",
+   "issues": [
+    10721
+   ],
+   "excluded": "merged into 9.1.x, not main"
+  },
+  {
+   "pr": 14833,
+   "pr_title": "Accept MarkDecorator as get_closest_marker default",
+   "pr_created_at": "2026-08-04T11:17:47Z",
+   "merged_at": "2026-08-12T19:27:52Z",
+   "merge_commit": "b9353807eb8c4d7232556138f9e81ce53556f43c",
+   "issues": [
+    13354
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13354,
+   "title": "`Node.get_closest_marker` default kwarg deprecation",
+   "issue_created_at": "2025-04-04T17:17:33Z"
+  },
+  {
+   "pr": 14838,
+   "pr_title": "Improve pytester outcome parsing error",
+   "pr_created_at": "2026-08-06T17:27:28Z",
+   "merged_at": "2026-08-23T13:33:25Z",
+   "merge_commit": "060c851856f732d06cfd68feb35e7a332b1c32ad",
+   "issues": [
+    13369
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13369,
+   "title": "Plugins modifying output can break pytester",
+   "issue_created_at": "2025-04-10T16:10:19Z"
+  },
+  {
+   "pr": 14845,
+   "pr_title": "docs: endorse pytest-skip-slow plugin",
+   "pr_created_at": "2026-08-09T06:45:04Z",
+   "merged_at": "2026-08-12T20:38:35Z",
+   "merge_commit": "68308aa288e00ff84880572ed9b3590f6cd7d470",
+   "issues": [
+    14834
+   ],
+   "excluded": "no source change under src/",
+   "issue": 14834,
+   "title": "endorse https://pypi.org/project/pytest-skip-slow/ for the slow marker",
+   "issue_created_at": "2026-08-04T18:56:14Z",
+   "source_files": [],
+   "test_files": [],
+   "source_lines": 0,
+   "other_files": []
+  },
+  {
+   "pr": 14865,
+   "pr_title": "Don't trust a zero Windows file ID in samefile_nofollow",
+   "pr_created_at": "2026-08-12T12:03:31Z",
+   "merged_at": "2026-08-18T11:27:47Z",
+   "merge_commit": "d6f66d42df86624ed128b84ce57df3d173fe1b95",
+   "issues": [
+    14864
+   ],
+   "excluded": null,
+   "issue": 14864,
+   "title": "(Windows) passing a file path collects the whole suite, on a network drive where st_ino is 0",
+   "issue_created_at": "2026-08-12T11:06:30Z",
+   "source_files": [
+    "src/_pytest/pathlib.py"
+   ],
+   "test_files": [
+    "testing/test_pathlib.py"
+   ],
+   "source_lines": 10,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 112,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      112,
+      112
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      112,
+      112
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 2218,
+   "comments_before_as_of": 1
+  },
+  {
+   "pr": 14875,
+   "pr_title": "fix(terminal): show teardown phase for xfail reports",
+   "pr_created_at": "2026-08-13T00:54:45Z",
+   "merged_at": "2026-08-16T11:14:09Z",
+   "merge_commit": "aa4c208fc0f11f0572cf010f72fe497f46e81ec1",
+   "issues": [
+    6997
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 6997,
+   "title": "xfail reports incorrect number of testcases if there is exception in fixture teardown",
+   "issue_created_at": "2020-04-01T07:45:26Z"
+  },
+  {
+   "pr": 14901,
+   "pr_title": "[PR #14865/d6f66d42 backport][9.1.x] Don't trust a zero Windows file ID in samefile_nofollow",
+   "pr_created_at": "2026-08-18T11:28:00Z",
+   "merged_at": "2026-08-18T20:08:07Z",
+   "merge_commit": "8377c2ac11a4d2aca224dab538dc77d37a4a03bc",
+   "issues": [
+    14864
+   ],
+   "excluded": "merged into 9.1.x, not main"
+  },
+  {
+   "pr": 14903,
+   "pr_title": "Make rendering deep and recursive tracebacks cheap",
+   "pr_created_at": "2026-08-18T15:46:08Z",
+   "merged_at": "2026-08-18T18:44:15Z",
+   "merge_commit": "c0ab40c93b3a6bc0c1d586f5c313b265f7ceabed",
+   "issues": [
+    10745
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 10745,
+   "title": "Test with infinite recursion error slows down pytest even if the exception is not shown to the user (because it’s marked as xfail).",
+   "issue_created_at": "2023-02-16T15:44:51Z"
+  },
+  {
+   "pr": 14905,
+   "pr_title": "Invalidate rewritten pyc files by source hash",
+   "pr_created_at": "2026-08-18T21:31:52Z",
+   "merged_at": "2026-08-19T09:11:50Z",
+   "merge_commit": "e9eb967ea2fbb037bbf679df7dd59ac285bdbfd2",
+   "issues": [
+    11418,
+    13292
+   ],
+   "excluded": "closes 2 issues"
+  },
+  {
+   "pr": 14910,
+   "pr_title": "fix(MonkeyPatch): register undo entry only after a successful mutation (delattr/setitem/delitem) (#14909)",
+   "pr_created_at": "2026-08-19T15:45:29Z",
+   "merged_at": "2026-09-07T19:38:55Z",
+   "merge_commit": "ae777851d8b324de5eb3d0e860c28b219ce3fcd8",
+   "issues": [
+    14909
+   ],
+   "excluded": null,
+   "issue": 14909,
+   "title": "MonkeyPatch records stale undo entries when delattr/setitem/delitem fails",
+   "issue_created_at": "2026-08-19T13:41:04Z",
+   "source_files": [
+    "src/_pytest/monkeypatch.py"
+   ],
+   "test_files": [
+    "testing/test_monkeypatch.py"
+   ],
+   "source_lines": 8,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 3,
+    "pass_to_pass": 36,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      3
+     ],
+     "pass_to_pass": [
+      36,
+      36
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      3,
+      3
+     ],
+     "pass_to_pass": [
+      36,
+      36
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1990,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14931,
+   "pr_title": "fix: stop reusing shared PytestWarning instances whose tracebacks grow under -W error",
+   "pr_created_at": "2026-08-24T10:49:41Z",
+   "merged_at": "2026-10-05T11:38:22Z",
+   "merge_commit": "980445e88fae083d9ff91649bd22913a8abbaf18",
+   "issues": [
+    14912
+   ],
+   "excluded": "6 source files (limit 3)",
+   "issue": 14912,
+   "title": "Shared `PytestWarning` instances in `deprecated.py` accumulate tracebacks under `-W error`",
+   "issue_created_at": "2026-08-19T17:19:37Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py",
+    "src/_pytest/deprecated.py",
+    "src/_pytest/fixtures.py",
+    "src/_pytest/monkeypatch.py",
+    "src/_pytest/pastebin.py",
+    "src/_pytest/python.py"
+   ],
+   "test_files": [
+    "testing/deprecated_test.py"
+   ],
+   "source_lines": 85,
+   "other_files": []
+  },
+  {
+   "pr": 14934,
+   "pr_title": "fix: raise on any nested container in approx(), not only same-type",
+   "pr_created_at": "2026-08-25T05:45:54Z",
+   "merged_at": "2026-08-25T07:33:32Z",
+   "merge_commit": "b0de7356b509ed01777a485662e05a9dc8e23c67",
+   "issues": [
+    10210
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 10210,
+   "title": "`pytest.approx` does not raise in mixed data type nested structures",
+   "issue_created_at": "2022-08-12T20:39:25Z"
+  },
+  {
+   "pr": 14954,
+   "pr_title": "Allow int for max_warnings in TOML",
+   "pr_created_at": "2026-08-31T01:29:28Z",
+   "merged_at": "2026-09-06T11:45:39Z",
+   "merge_commit": "b0ca559dd01f4f056eeefdc4f67985008d3f3ea4",
+   "issues": [
+    14953
+   ],
+   "excluded": null,
+   "issue": 14953,
+   "title": "`max_warnings` rejects the integer shown in the native TOML documentation",
+   "issue_created_at": "2026-08-30T21:36:43Z",
+   "source_files": [
+    "src/_pytest/main.py",
+    "src/_pytest/terminal.py"
+   ],
+   "test_files": [
+    "testing/test_warnings.py"
+   ],
+   "source_lines": 8,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 59,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      59,
+      59
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      59,
+      59
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 5458,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 14968,
+   "pr_title": "[PR #14645/a933cf5d backport][9.1.x] fix: deduplicate Directory nodes on re-collection to preserve fixture identity (#14635)",
+   "pr_created_at": "2026-09-04T03:26:26Z",
+   "merged_at": "2026-09-06T07:35:21Z",
+   "merge_commit": "aef551a36d759e5bcf3d08d14c934b2e2d870377",
+   "issues": [
+    14635
+   ],
+   "excluded": "merged into 9.1.x, not main"
+  },
+  {
+   "pr": 14969,
+   "pr_title": "fix(monkeypatch): don't leave inherited attributes in the instance dict",
+   "pr_created_at": "2026-09-04T10:10:28Z",
+   "merged_at": "2026-09-07T19:44:32Z",
+   "merge_commit": "472b4de93d83c118e0d089a34918fd1210d9ebc8",
+   "issues": [
+    10644
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 10644,
+   "title": "`MonkeyPatch.setattr` leaves a new item in `vars(target)` after cleanup when overriding an inherited attribute of a non-class object",
+   "issue_created_at": "2023-01-09T09:29:25Z"
+  },
+  {
+   "pr": 14978,
+   "pr_title": "Improve parametrize error for scalar parameter sets",
+   "pr_created_at": "2026-09-06T08:58:07Z",
+   "merged_at": "2026-09-13T15:03:40Z",
+   "merge_commit": "a315b97ce61f158bef9957152c8415fe743aa553",
+   "issues": [
+    14619
+   ],
+   "excluded": null,
+   "issue": 14619,
+   "title": "Spurious comma in `parametrize` causes obfuscated crash",
+   "issue_created_at": "2026-06-17T12:49:02Z",
+   "source_files": [
+    "src/_pytest/mark/structures.py"
+   ],
+   "test_files": [
+    "testing/test_mark.py"
+   ],
+   "source_lines": 17,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 1,
+    "pass_to_pass": 118,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      1
+     ],
+     "pass_to_pass": [
+      118,
+      118
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      1,
+      1
+     ],
+     "pass_to_pass": [
+      118,
+      118
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 3226,
+   "comments_before_as_of": 1
+  },
+  {
+   "pr": 14984,
+   "pr_title": "fixtures: use a better data structure for storing FixtureDefs",
+   "pr_created_at": "2026-09-07T18:28:15Z",
+   "merged_at": "2026-09-14T08:24:52Z",
+   "merge_commit": "aceb21ab2fa19f91282adfdb978a6ae252b3b020",
+   "issues": [
+    14942
+   ],
+   "excluded": "changes files outside src/testing/changelog/doc/AUTHORS (tox.ini)",
+   "issue": 14942,
+   "title": "Test collection is 10x slower on 9.1.1 compared to 9.0.3",
+   "issue_created_at": "2026-08-26T15:14:53Z",
+   "source_files": [
+    "src/_pytest/fixtures.py"
+   ],
+   "test_files": [
+    "testing/deprecated_test.py",
+    "testing/python/fixtures.py"
+   ],
+   "source_lines": 160,
+   "other_files": [
+    "tox.ini"
+   ]
+  },
+  {
+   "pr": 15006,
+   "pr_title": "approx: Decimal and numpy cleanup",
+   "pr_created_at": "2026-09-13T06:00:37Z",
+   "merged_at": "2026-09-13T13:07:29Z",
+   "merge_commit": "86c6c354e19d0c8713bb47d6cb1c4aaebea7cb6a",
+   "issues": [
+    15005
+   ],
+   "excluded": "220 changed source lines (limit 80)",
+   "issue": 15005,
+   "title": "pytest.approx returns False for in-tolerance finite Decimal values above the float range",
+   "issue_created_at": "2026-09-13T04:39:55Z",
+   "source_files": [
+    "src/_pytest/approx.py",
+    "src/_pytest/warning_types.py",
+    "src/pytest/__init__.py"
+   ],
+   "test_files": [
+    "testing/python/approx.py"
+   ],
+   "source_lines": 220,
+   "other_files": []
+  },
+  {
+   "pr": 15023,
+   "pr_title": "feat(packaging): version git archives of arbitrary commits",
+   "pr_created_at": "2026-09-14T10:26:36Z",
+   "merged_at": "2026-09-14T16:37:46Z",
+   "merge_commit": "de30d8417f3d93bc0c16fc0a64092e197c46e36a",
+   "issues": [
+    11680
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 11680,
+   "title": "[packaging] Allow versioning arbitrary Git commits",
+   "issue_created_at": "2023-12-07T00:34:53Z"
+  },
+  {
+   "pr": 15025,
+   "pr_title": "[PR #15023/de30d841 backport][9.1.x] feat(packaging): version git archives of arbitrary commits",
+   "pr_created_at": "2026-09-14T16:38:00Z",
+   "merged_at": "2026-09-15T07:54:21Z",
+   "merge_commit": "e470234752a61a7001a0820d4efbed6cbdea98da",
+   "issues": [
+    11680
+   ],
+   "excluded": "merged into 9.1.x, not main"
+  },
+  {
+   "pr": 15033,
+   "pr_title": "Fix doctest option flags leaking between docstrings",
+   "pr_created_at": "2026-09-16T05:53:37Z",
+   "merged_at": "2026-09-23T07:29:42Z",
+   "merge_commit": "f9554ee56d264da285f3951ebfdf6f1d59ba4077",
+   "issues": [
+    9924
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 9924,
+   "title": "Leakage of NUMBER option out of docstring scope",
+   "issue_created_at": "2022-05-07T01:31:34Z"
+  },
+  {
+   "pr": 15040,
+   "pr_title": "Mark editable-installed plugins for assertion rewriting",
+   "pr_created_at": "2026-09-16T10:59:18Z",
+   "merged_at": "2026-10-10T09:11:45Z",
+   "merge_commit": "4fa645fe43855630b4492fc3fdec13050152f4ef",
+   "issues": [
+    11783
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 11783,
+   "title": "Assertion rewriting issue with editable-installed plugins",
+   "issue_created_at": "2024-01-06T20:05:47Z"
+  },
+  {
+   "pr": 15044,
+   "pr_title": "Warn when writing or closing a cache file fails",
+   "pr_created_at": "2026-09-16T23:16:24Z",
+   "merged_at": "2026-09-18T06:25:34Z",
+   "merge_commit": "6a0de9be56365e75ff30d75cee9654739ca95f97",
+   "issues": [
+    15043
+   ],
+   "excluded": null,
+   "issue": 15043,
+   "title": "cache.set() raises on write and close errors instead of warning",
+   "issue_created_at": "2026-09-16T23:00:22Z",
+   "source_files": [
+    "src/_pytest/cacheprovider.py"
+   ],
+   "test_files": [
+    "testing/test_cacheprovider.py"
+   ],
+   "source_lines": 5,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 2,
+    "pass_to_pass": 64,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      2
+     ],
+     "pass_to_pass": [
+      64,
+      64
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      2,
+      2
+     ],
+     "pass_to_pass": [
+      64,
+      64
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1986,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 15053,
+   "pr_title": "fixtures: fix lineno off-by-one in --fixtures/--fixtures-per-test and a couple of error messages",
+   "pr_created_at": "2026-09-17T11:46:59Z",
+   "merged_at": "2026-09-17T12:33:37Z",
+   "merge_commit": "56a92c19d4a71152c594726efc9deb5f0e126e99",
+   "issues": [
+    15052
+   ],
+   "excluded": null,
+   "issue": 15052,
+   "title": "fixtures: `--fixtures-per-test` has an off-by-one on item's lineno",
+   "issue_created_at": "2026-09-17T10:56:09Z",
+   "source_files": [
+    "src/_pytest/compat.py"
+   ],
+   "test_files": [
+    "testing/python/fixtures.py",
+    "testing/python/show_fixtures_per_test.py"
+   ],
+   "source_lines": 4,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 19,
+    "pass_to_pass": 233,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      19
+     ],
+     "pass_to_pass": [
+      233,
+      233
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      19,
+      19
+     ],
+     "pass_to_pass": [
+      233,
+      233
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 380,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 15058,
+   "pr_title": "Fix fixture discovery for bound methods in custom collectors",
+   "pr_created_at": "2026-09-17T22:53:26Z",
+   "merged_at": "2026-10-06T19:32:32Z",
+   "merge_commit": "59200df778adf8079df6125d60662908ac0a0646",
+   "issues": [
+    6750
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 6750,
+   "title": "compat::getfuncargnames removes self from instance method twice by mistake",
+   "issue_created_at": "2020-02-17T02:04:35Z"
+  },
+  {
+   "pr": 15128,
+   "pr_title": "Require pluggy>=1.6 so caplog keeps its handler (#9236)",
+   "pr_created_at": "2026-10-04T18:02:48Z",
+   "merged_at": "2026-10-17T16:09:20Z",
+   "merge_commit": "420cf37a3fc8c03c9a4769c2635a03773d27be10",
+   "issues": [
+    9236
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 9236,
+   "title": "`LogCaptureHandler` can be garbage collected when `caplog` fixture is in use",
+   "issue_created_at": "2021-10-25T07:43:48Z"
+  },
+  {
+   "pr": 15133,
+   "pr_title": "Accept native TOML numbers for faulthandler_timeout",
+   "pr_created_at": "2026-10-05T03:18:18Z",
+   "merged_at": "2026-10-09T11:52:08Z",
+   "merge_commit": "adf183f4d3113b50e6eefa488c0e2a37a782d14a",
+   "issues": [
+    15132
+   ],
+   "excluded": null,
+   "issue": 15132,
+   "title": "Native TOML numeric faulthandler_timeout is rejected",
+   "issue_created_at": "2026-10-05T03:08:29Z",
+   "source_files": [
+    "src/_pytest/faulthandler.py"
+   ],
+   "test_files": [
+    "testing/test_faulthandler.py"
+   ],
+   "source_lines": 2,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 2,
+    "pass_to_pass": 13,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      2
+     ],
+     "pass_to_pass": [
+      13,
+      13
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      2,
+      2
+     ],
+     "pass_to_pass": [
+      13,
+      13
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 858,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 15149,
+   "pr_title": "Derive ExceptionInfo strip text lazily from the exception",
+   "pr_created_at": "2026-10-07T16:37:03Z",
+   "merged_at": "2026-10-08T16:26:45Z",
+   "merge_commit": "3e34325a991b0f3b77f2ca27a227addcc0570bc2",
+   "issues": [
+    12175
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 12175,
+   "title": "``ExceptionInfo.for_later()`` wont add assertion strip text",
+   "issue_created_at": "2024-04-01T10:19:02Z"
+  },
+  {
+   "pr": 15173,
+   "pr_title": "Pretty-print builtin frozendict in assertion diffs",
+   "pr_created_at": "2026-10-13T11:54:26Z",
+   "merged_at": "2026-10-25T15:08:58Z",
+   "merge_commit": "7d646b595cf6e5e0111bbb41bac5e1f5cdf2881b",
+   "issues": [
+    15172
+   ],
+   "excluded": "reference verification failed: Task pytest-15172 is unusable: The fix's tests do not fail before the fix.",
+   "issue": 15172,
+   "title": "Assertion diff doesn't pretty-print the built-in frozen dict (Python 3.15)",
+   "issue_created_at": "2026-10-13T10:35:45Z",
+   "source_files": [
+    "src/_pytest/_io/pprint.py"
+   ],
+   "test_files": [
+    "testing/io/test_pprint.py"
+   ],
+   "source_lines": 33,
+   "other_files": []
+  },
+  {
+   "pr": 15192,
+   "pr_title": "Fix documentation build with Pluggy 1.7",
+   "pr_created_at": "2026-10-16T04:46:23Z",
+   "merged_at": "2026-10-17T08:12:23Z",
+   "merge_commit": "cb6ff97bcb147f2bb5d9e0072c424dc03a452ba1",
+   "issues": [
+    15190
+   ],
+   "excluded": "no source change under src/",
+   "issue": 15190,
+   "title": "Docs build fails with Pluggy 1.7.0 on an unresolved private DistFacade reference",
+   "issue_created_at": "2026-10-16T04:36:21Z",
+   "source_files": [],
+   "test_files": [],
+   "source_lines": 0,
+   "other_files": []
+  },
+  {
+   "pr": 15193,
+   "pr_title": "feat(mark): expose `pytest.ParameterSet` in public API (#13431)",
+   "pr_created_at": "2026-10-16T08:48:39Z",
+   "merged_at": "2026-10-24T19:56:07Z",
+   "merge_commit": "0f54d41bedf00505bb1ac2c724abf96ba6dcf48d",
+   "issues": [
+    13431
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 13431,
+   "title": "ParameterSet is private",
+   "issue_created_at": "2025-05-18T13:25:53Z"
+  },
+  {
+   "pr": 15202,
+   "pr_title": "Deprecate passing bytes to TerminalReporter.write_line",
+   "pr_created_at": "2026-10-18T15:04:46Z",
+   "merged_at": "2026-10-23T04:11:39Z",
+   "merge_commit": "4088e1a84ef1cb8ba80aac4e75449459fc092c12",
+   "issues": [
+    7323
+   ],
+   "excluded": "issue opened before the mirrored window (comments not mirrored)",
+   "issue": 7323,
+   "title": "Deprecate/drop support for accepting bytes in terminal.write_line",
+   "issue_created_at": "2020-06-05T11:56:03Z"
+  },
+  {
+   "pr": 15245,
+   "pr_title": "docs: show venv/pip, uv and virtualenv installs",
+   "pr_created_at": "2026-10-22T14:16:56Z",
+   "merged_at": "2026-10-27T08:23:03Z",
+   "merge_commit": "a7b2446ee41a7298d3a0bc22c52f3b8bacae1566",
+   "issues": [
+    15242
+   ],
+   "excluded": "no source change under src/",
+   "issue": 15242,
+   "title": "I encountered the error `error: externally-managed-environment` while trying to install `pytest` following the \"Get Started\" guide.",
+   "issue_created_at": "2026-10-22T13:22:47Z",
+   "source_files": [],
+   "test_files": [],
+   "source_lines": 0,
+   "other_files": []
+  },
+  {
+   "pr": 15255,
+   "pr_title": "tmpdir: hand out numbered dirs from a per-prefix counter",
+   "pr_created_at": "2026-10-24T10:23:05Z",
+   "merged_at": "2026-10-25T17:50:00Z",
+   "merge_commit": "082ed70e314ee8e1ab117763d17fe801648f7508",
+   "issues": [
+    15254
+   ],
+   "excluded": null,
+   "issue": 15254,
+   "title": "tmp_path / tmp_path_factory.mktemp list the whole basetemp on every call: O(N^2) over a session",
+   "issue_created_at": "2026-10-24T08:06:47Z",
+   "source_files": [
+    "src/_pytest/tmpdir.py"
+   ],
+   "test_files": [
+    "testing/test_tmpdir.py"
+   ],
+   "source_lines": 52,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 8,
+    "pass_to_pass": 50,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      8
+     ],
+     "pass_to_pass": [
+      50,
+      50
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      8,
+      8
+     ],
+     "pass_to_pass": [
+      50,
+      50
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 4788,
+   "comments_before_as_of": 0
+  },
+  {
+   "pr": 15285,
+   "pr_title": "Fix `pytest.approx` regression with JAX arrays",
+   "pr_created_at": "2026-10-28T16:23:44Z",
+   "merged_at": "2026-10-30T09:28:51Z",
+   "merge_commit": "4b3bb3cca4bb53ffe38473b7f29d832d42a4177b",
+   "issues": [
+    15284
+   ],
+   "excluded": "reference verification failed: Task pytest-15284 is unusable: The fix's tests do not fail before the fix.",
+   "issue": 15284,
+   "title": "`pytest.approx`: 9.2.0 broke compatibility with JAX arrays",
+   "issue_created_at": "2026-10-28T15:38:37Z",
+   "source_files": [
+    "src/_pytest/approx.py"
+   ],
+   "test_files": [
+    "testing/python/approx.py"
+   ],
+   "source_lines": 5,
+   "other_files": []
+  },
+  {
+   "pr": 15296,
+   "pr_title": "Accept numeric strings for verbosity options in TOML again, with a deprecation",
+   "pr_created_at": "2026-10-29T16:22:09Z",
+   "merged_at": "2026-11-04T08:34:42Z",
+   "merge_commit": "08017d9ada4c72a7b6a78f7873c238070e24c982",
+   "issues": [
+    15290
+   ],
+   "excluded": null,
+   "issue": 15290,
+   "title": "TOML config opts `verbosity_assertions`, `verbosity_subtests`, & `verbosity_test_cases` no longer accept numeric string values in 9.2.0",
+   "issue_created_at": "2026-10-29T10:42:10Z",
+   "source_files": [
+    "src/_pytest/config/__init__.py",
+    "src/_pytest/deprecated.py",
+    "src/_pytest/tmpdir.py"
+   ],
+   "test_files": [
+    "testing/test_config.py",
+    "testing/test_tmpdir.py"
+   ],
+   "source_lines": 49,
+   "other_files": [],
+   "verification": {
+    "fail_to_pass": 2,
+    "pass_to_pass": 369,
+    "unchanged": {
+     "fail_to_pass": [
+      0,
+      2
+     ],
+     "pass_to_pass": [
+      369,
+      369
+     ],
+     "score": 0.0,
+     "resolved": false
+    },
+    "reference": {
+     "fail_to_pass": [
+      2,
+      2
+     ],
+     "pass_to_pass": [
+      369,
+      369
+     ],
+     "score": 1.0,
+     "resolved": true
+    }
+   },
+   "statement_chars": 1006,
+   "comments_before_as_of": 2
+  },
+  {
+   "pr": 15298,
+   "pr_title": "Store a timing.Duration in CallInfo",
+   "pr_created_at": "2026-10-29T19:01:00Z",
+   "merged_at": "2026-10-30T10:38:56Z",
+   "merge_commit": "0212785e34eb635b3359e4eccc757de95bf39036",
+   "issues": [
+    15201
+   ],
+   "excluded": "4 source files (limit 3)",
+   "issue": 15201,
+   "title": "Subtest durations become negative when `time` is mocked (subtests.py bypasses `_pytest.timing`)",
+   "issue_created_at": "2026-10-18T14:56:31Z",
+   "source_files": [
+    "src/_pytest/runner.py",
+    "src/_pytest/subtests.py",
+    "src/_pytest/timing.py",
+    "src/_pytest/unittest.py"
+   ],
+   "test_files": [
+    "testing/test_runner.py",
+    "testing/test_subtests.py"
+   ],
+   "source_lines": 95,
+   "other_files": []
+  },
+  {
+   "pr": 15301,
+   "pr_title": "[PR #15285/4b3bb3cc backport][9.2.x] Fix `pytest.approx` regression with JAX arrays",
+   "pr_created_at": "2026-10-30T09:29:08Z",
+   "merged_at": "2026-10-30T09:43:50Z",
+   "merge_commit": "35dd0f34b75848c4d2ed759815919becb40cfab4",
+   "issues": [
+    15284
+   ],
+   "excluded": "merged into 9.2.x, not main"
+  }
+ ]
+}

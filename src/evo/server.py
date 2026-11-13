@@ -20,6 +20,8 @@ from .common import ACTIVE, Conflict
 from .config import get_api_key, get_settings, set_api_key, update_settings
 from .model_defaults import runtime_recommendations
 from .evolution import EvolutionService
+from .evolve.service import ExperimentService
+from .evolve.tasks import task_python, replay_dir
 from .providers import ModelProvider, ProviderError
 from .runtime import Runtime
 from .projects import project_view
@@ -66,6 +68,7 @@ class SettingsPatch(BaseModel):
     sandbox: Literal["local"] | None = None
     input_price: Price | None = None
     cached_input_price: Price | None = None
+    cache_write_price: Price | None = None
     output_price: Price | None = None
 
 
@@ -110,6 +113,38 @@ class EvolutionInput(BaseModel):
     role: NonEmpty
     run_ids: list[str] | None = None
     feedback: str = ""
+
+
+class ExperimentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: NonEmpty = "code"
+    kind: Literal["prompt", "skill"] = "prompt"
+    objective: Annotated[str, Field(max_length=4000)] = ""
+    run_ids: list[str] = []
+    skill_id: str | None = None
+    train: list[str] | None = None
+    validation: list[str] | None = None
+    heldout: list[str] | None = None
+    limits: dict[str, float] | None = None
+
+
+class EvolutionSettingsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["manual", "auto"] | None = None
+    auto_activate: bool | None = None
+    min_queued_runs: int | None = None
+    max_auto_per_day: int | None = None
+    role: str | None = None
+    limits: dict[str, float] | None = None
+
+
+class ActivateInput(BaseModel):
+    force: bool = False
+
+
+class RollbackInput(BaseModel):
+    role: NonEmpty
+    prompt_id: str | None = None
 
 
 class EvaluationCase(BaseModel):
@@ -184,15 +219,19 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
         try:
             _recover_interrupted(store)
             runtime = Runtime(store)
+            runtime.reconcile_reservations()  # in-flight requests from a previous process
             app.state.store = store
             app.state.runtime = runtime
             app.state.knowledge = runtime.knowledge
             app.state.skills = runtime.skills
             app.state.artifacts = runtime.artifacts
             app.state.evolution = EvolutionService(store, runtime)
+            app.state.experiments = ExperimentService(store, runtime)
+            app.state.experiments.recover()
             try:
                 yield
             finally:
+                await app.state.experiments.close()
                 await app.state.runtime.close()
         finally:
             store.close()
@@ -450,7 +489,7 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
 
     @app.post("/api/projects/{project_id}/prompts/{prompt_id}/promote")
     async def promote_prompt(project: ProjectRecord, prompt_id: str):
-        return app.state.evolution.promote_prompt(project["id"], prompt_id)
+        return app.state.experiments.activate(project["id"], prompt_id, force=True)
 
     @app.get("/api/projects/{project_id}/prompts/{prompt_id}/evaluations")
     async def list_evaluations(request: Request, project_id: str, prompt_id: str):
@@ -463,6 +502,54 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
     async def evaluate_prompt(project: ProjectRecord, prompt_id: str, body: EvaluationInput):
         return await app.state.evolution.evaluate(project["id"], prompt_id,
                                                   [case.model_dump() for case in body.cases])
+
+    def _experiment(experiment_id: str, project_id: str) -> dict:
+        experiment = app.state.experiments.get(experiment_id)
+        if experiment["project_id"] != project_id:
+            raise HTTPException(404, "Experiment not found.")
+        return experiment
+
+    @app.get("/api/projects/{project_id}/evolution")
+    async def evolution_overview(project: ProjectRecord):
+        service = app.state.experiments
+        return {"settings": service.settings(project["id"]), "queue": service.queue(project["id"]),
+                "experiments": service.list(project["id"]), "tasks": service.tasks.list(),
+                "exposure": service.exposure(),
+                "environment": {"replay_data": bool(replay_dir()), "task_python": bool(task_python())}}
+
+    @app.put("/api/projects/{project_id}/evolution/settings")
+    async def evolution_settings(project: ProjectRecord, body: EvolutionSettingsInput):
+        return app.state.experiments.update_settings(project["id"], body.model_dump(exclude_none=True))
+
+    @app.post("/api/projects/{project_id}/evolution/queue/{item_id:path}/dismiss")
+    async def dismiss_queue_item(project: ProjectRecord, item_id: str):
+        return app.state.experiments.dismiss(project["id"], item_id)
+
+    @app.post("/api/projects/{project_id}/experiments", status_code=201)
+    async def create_experiment(project: ProjectRecord, body: ExperimentInput):
+        return app.state.experiments.create(project["id"], **body.model_dump())
+
+    @app.get("/api/projects/{project_id}/experiments/{experiment_id}")
+    async def read_experiment(project: ProjectRecord, experiment_id: str):
+        return _experiment(experiment_id, project["id"])
+
+    @app.post("/api/projects/{project_id}/experiments/{experiment_id}/cancel")
+    async def cancel_experiment(project: ProjectRecord, experiment_id: str):
+        _experiment(experiment_id, project["id"])
+        return app.state.experiments.cancel(experiment_id)
+
+    @app.post("/api/projects/{project_id}/experiments/{experiment_id}/resume")
+    async def resume_experiment(project: ProjectRecord, experiment_id: str):
+        _experiment(experiment_id, project["id"])
+        return app.state.experiments.resume(experiment_id)
+
+    @app.post("/api/projects/{project_id}/prompts/{prompt_id}/activate")
+    async def activate_prompt(project: ProjectRecord, prompt_id: str, body: ActivateInput):
+        return app.state.experiments.activate(project["id"], prompt_id, force=body.force)
+
+    @app.post("/api/projects/{project_id}/prompts/rollback")
+    async def rollback_prompt(project: ProjectRecord, body: RollbackInput):
+        return app.state.experiments.rollback(project["id"], body.role, body.prompt_id)
 
     @app.get("/api/runs/{run_id}/artifacts")
     async def list_artifacts(run: RunRecord):

@@ -30,6 +30,7 @@ DEFAULT_SETTINGS = {
     "sandbox": "local",
     "input_price": 0,
     "cached_input_price": 0,
+    "cache_write_price": 0,      # 0 means input written to the cache is priced as ordinary input
     "output_price": 0,
 }
 
