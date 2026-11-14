@@ -55,6 +55,10 @@ def feedback_text(record: dict) -> str:
                 lines.append("Target tests still failing: " + ", ".join(record["failing"][:5]))
             if record.get("broken"):
                 lines.append("Existing tests broken by the change: " + ", ".join(record["broken"][:5]))
+    if record.get("attempts"):
+        lines.append("Repeated attempts on this task: " + ", ".join(
+            f"{a.get('outcome')} {a.get('score')}" for a in record["attempts"])
+            + f" (mean {record.get('score')}). The trajectory below is from the first scored attempt.")
     if not record.get("changed_files"):
         lines.append("The agent left no changes in the repository.")
     lines.append(f"Cost: {record.get('tokens', 0):,} tokens, {record.get('latency_s', 0)}s, "

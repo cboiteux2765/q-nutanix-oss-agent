@@ -67,6 +67,8 @@ type Rollout = {
   error?: string;
   leakage?: unknown[];
   reused_from?: string;
+  attempt?: number;
+  retry?: number;
 };
 type Experiment = {
   id: string;
@@ -142,11 +144,13 @@ type PromptRecord = Prompt & {
 
 const RUNNING = ['queued', 'running'];
 const LIMIT_FIELDS: [string, string, number][] = [
-  ['max_metric_calls', 'Search rollouts', 1],
+  ['max_metric_calls', 'Search task evaluations', 1],
+  ['rollouts_per_task', 'Rollouts per search evaluation', 1],
   ['max_iterations', 'GEPA proposals', 1],
   ['reflection_minibatch_size', 'Reflection minibatch', 1],
   ['rollout_tokens', 'Tokens per rollout', 1],
   ['max_steps', 'Agent steps per rollout', 1],
+  ['error_retries', 'Retries after an error', 1],
   ['experiment_tokens', 'Total token budget', 1],
   ['rollout_seconds', 'Minutes per rollout', 60],
   ['wall_seconds', 'Hours in total', 3600],
@@ -803,7 +807,11 @@ function ExperimentDetail({
               >
                 <span className={`phase-tag ${r.phase}`}>{r.phase}</span>
                 <span>{r.task_id}</span>
-                <span>{r.candidate_label}</span>
+                <span>
+                  {r.candidate_label}
+                  {r.attempt ? ` · attempt ${r.attempt + 1}` : ''}
+                  {r.retry ? ` · retry ${r.retry}` : ''}
+                </span>
                 <span className="spacer" />
                 <span>
                   {r.resolved ? 'resolved' : r.outcome}

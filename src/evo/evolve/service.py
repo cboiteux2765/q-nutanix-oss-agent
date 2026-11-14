@@ -34,7 +34,7 @@ from .tasks import TaskBundles, task_python
 
 FINAL = {"completed", "failed", "cancelled", "interrupted", "stopped"}
 DEFAULT_LIMITS = {
-    "max_metric_calls": 8,        # rollouts GEPA may spend on train + validation
+    "max_metric_calls": 8,        # task evaluations GEPA may spend on train + validation
     "max_iterations": 3,          # GEPA proposals
     "reflection_minibatch_size": 1,
     "rollout_tokens": 400_000,    # per rollout
@@ -44,11 +44,16 @@ DEFAULT_LIMITS = {
     "rollout_seconds": 1200,
     "wall_seconds": 4 * 3600,
     "max_steps": 60,
+    "rollouts_per_task": 1,       # search only: each task evaluation averages this many rollouts
+    "error_retries": 1,           # a rollout that ends in a provider or harness error is rerun this often
 }
+# Limits that may be zero.
+ZERO_OK = {"error_retries"}
 LIMIT_CAPS = {"max_metric_calls": 40, "max_iterations": 10, "reflection_minibatch_size": 3,
               "rollout_tokens": 2_000_000, "experiment_tokens": 100_000_000, "max_cost_usd": 200.0,
               "rollout_cost_usd": 20.0,
-              "rollout_seconds": 3600, "wall_seconds": 12 * 3600, "max_steps": 200}
+              "rollout_seconds": 3600, "wall_seconds": 12 * 3600, "max_steps": 200,
+              "rollouts_per_task": 3, "error_retries": 2}
 DEFAULT_SETTINGS = {
     "mode": "manual",             # manual: the queue only suggests; auto: experiments start themselves
     "auto_activate": False,       # auto mode may activate a candidate that passes every gate
@@ -84,6 +89,7 @@ def budget_plan(limits: dict, splits: dict, provider: dict, kind: str = "prompt"
     validation = len(splits.get("validation", []))
     minibatch = min(int(limits.get("reflection_minibatch_size", 1)), max(1, len(splits.get("train", []))))
     proposals = int(limits.get("max_iterations", 1)) if kind == "prompt" else 0
+    repeats = int(limits.get("rollouts_per_task", 1))
     total_usd = float(limits["max_cost_usd"]) if priced else None
     reserve_usd = 2 * final_tasks * float(limits.get("rollout_cost_usd", 0.5)) if priced else None
     return {
@@ -94,9 +100,12 @@ def budget_plan(limits: dict, splits: dict, provider: dict, kind: str = "prompt"
         "rollout_cost_usd": float(limits.get("rollout_cost_usd", 0.5)) if priced else None,
         # GEPA evaluates the seed on the full validation set; each proposal then costs a parent
         # minibatch, a child minibatch and, only if the child improves on it, the full validation set.
+        # Every task evaluation in the search runs `rollouts_per_task` rollouts.
         "search_rollouts": {
-            "all_rejected": validation + proposals * 2 * minibatch if kind == "prompt" else 0,
-            "all_accepted": validation + proposals * (2 * minibatch + validation) if kind == "prompt" else 0,
+            "all_rejected": repeats * (validation + proposals * 2 * minibatch) if kind == "prompt" else 0,
+            "all_accepted": repeats * (validation + proposals * (2 * minibatch + validation))
+            if kind == "prompt" else 0,
+            "rollouts_per_task": repeats,
             "fit_in_search_tokens": search // per_rollout if per_rollout else 0,
             "max_metric_calls": int(limits.get("max_metric_calls", 0)),
         },
@@ -130,6 +139,20 @@ def _spent_after(spent: dict, tokens: int, cost: float, *, rollout=False, reflec
     return spent
 
 
+def combine_attempts(records: list[dict]) -> dict:
+    """One task evaluation from repeated rollouts: the mean score over the scored attempts.
+
+    The first scored attempt supplies the trajectory shown to the reflection model; `attempts`
+    lists every attempt's outcome and score. With no scored attempt, the first record is returned."""
+    usable = [r for r in records if scored(r)]
+    if len(records) == 1 or not usable:
+        return records[0]
+    mean = round(sum(float(r.get("score") or 0) for r in usable) / len(usable), 4)
+    return {**usable[0], "score": mean, "resolved": all(r.get("resolved") for r in usable),
+            "attempts": [{"outcome": r.get("outcome"), "score": r.get("score"), "resolved": r.get("resolved")}
+                         for r in records]}
+
+
 def scored(record: dict) -> bool:
     """A rollout that ran to an agent outcome and was scored by the hidden checks."""
     return (record.get("outcome") in REUSABLE and "fail_to_pass" in record and not record.get("checks_error")
@@ -160,8 +183,10 @@ def _clean_limits(limits: dict | None, base: dict | None = None) -> dict:
         if key not in DEFAULT_LIMITS:
             raise ValueError(f"Unknown limit {key!r}.")
         number = float(value)
-        if not 0 < number <= LIMIT_CAPS[key]:
-            raise ValueError(f"{key} must be between 0 and {LIMIT_CAPS[key]:,}.")
+        low_ok = number >= 0 if key in ZERO_OK else number > 0
+        if not (low_ok and number <= LIMIT_CAPS[key]):
+            raise ValueError(f"{key} must be between {0 if key in ZERO_OK else 'above 0'} and "
+                             f"{LIMIT_CAPS[key]:,}.")
         merged[key] = number if key.endswith("_usd") else int(number)
     return merged
 
@@ -346,14 +371,15 @@ class ExperimentService:
                 f"{budget['heldout_reserve_tokens']:,}. Raise the total or use fewer held-out tasks.")
         if kind == "prompt":
             minibatch = min(limits["reflection_minibatch_size"], len(train))
-            needed = (len(validation) + 2 * minibatch) * limits["rollout_tokens"] + output_limit(settings)
+            first = (len(validation) + 2 * minibatch) * limits["rollouts_per_task"]
+            needed = first * limits["rollout_tokens"] + output_limit(settings)
             if budget["search_usd"] is not None:
-                needed_usd = (len(validation) + 2 * minibatch) * budget["rollout_cost_usd"]
+                needed_usd = first * budget["rollout_cost_usd"]
                 if budget["search_usd"] < needed_usd:
                     raise ValueError(
                         f"After reserving ${budget['heldout_reserve_usd']:.2f} for held-out evaluation, the search "
                         f"has ${budget['search_usd']:.2f}; testing one proposal needs ${needed_usd:.2f} "
-                        f"({len(validation) + 2 * minibatch} rollouts at ${budget['rollout_cost_usd']:.2f}).")
+                        f"({first} rollouts at ${budget['rollout_cost_usd']:.2f}).")
             if budget["search_tokens"] < needed:
                 raise ValueError(
                     f"After reserving {budget['heldout_reserve_tokens']:,} tokens for held-out evaluation, the "
@@ -635,8 +661,13 @@ class ExperimentService:
                             released_cost=leftover_cost, unresolved=leftover, unresolved_cost=leftover_cost)
 
     async def rollout(self, experiment_id: str, task: dict, text: str | None, context: dict, *, phase: str,
-                      candidate_label: str, extra_skill: dict | None = None) -> dict:
-        """Run one rollout, or reuse a finished one with the same task, candidate and configuration."""
+                      candidate_label: str, extra_skill: dict | None = None, attempt: int = 0,
+                      retry: int = 0) -> dict:
+        """Run one rollout, or reuse a finished one with the same task, candidate and configuration.
+
+        `attempt` numbers repeated rollouts of the same task and candidate (attempt 0 keeps the cache
+        identity of a single rollout). A rollout that ends in an error is rerun up to `error_retries`
+        times; the failed one stays in the ledger with its cost."""
         experiment = require(self.store, "evolution_experiments", experiment_id)
         frozen = context["frozen"]
         if extra_skill:
@@ -647,7 +678,7 @@ class ExperimentService:
         execution["command_timeout"] = int(limits.get("command_timeout", 300))
         provider = {k: v for k, v in context["provider"].items() if k not in NOT_BEHAVIORAL}
         key = _hash(experiment["role"], text, task["id"], task.get("version"), provider, execution,
-                    [s["id"] for s in frozen["skills"]], frozen["wiki_revision"])
+                    [s["id"] for s in frozen["skills"]], frozen["wiki_revision"], *([attempt] if attempt else []))
         # Held-out results never feed the search, and search results never stand in for held-out ones.
         heldout_phase = phase == "heldout"
         cached = next((r for r in self.store.list("evolution_rollouts", cache_key=key)
@@ -688,7 +719,8 @@ class ExperimentService:
                 "pool": pool, "reserved_tokens": cap, "reserved_cost_usd": allowance,
                 "data_dir": str(self.root / "rollouts" / folder_id),
                 "cache_key": key, "phase": phase, "candidate_label": candidate_label,
-                "candidate_hash": _hash(text), "split": task["split"], "task_title": task["title"]})
+                "candidate_hash": _hash(text), "split": task["split"], "task_title": task["title"],
+                "attempt": attempt, "retry": retry})
 
         pending = self.store.transact(open_rollout)
         try:
@@ -702,7 +734,18 @@ class ExperimentService:
             raise
         record.pop("id", None)
         saved = self._settle(pending["id"], record)
+        cancel = self.cancel_events.get(experiment_id)
+        if saved.get("outcome") == "error" and retry < int(limits.get("error_retries", 0)) and                 not (cancel and cancel.is_set()):
+            self._log(experiment_id, f"Retrying {task['id']} ({candidate_label}) after an error: "
+                                     f"{str(saved.get('error') or '')[:160]}")
+            return await self.rollout(experiment_id, task, text, context, phase=phase,
+                                      candidate_label=candidate_label, extra_skill=extra_skill,
+                                      attempt=attempt, retry=retry + 1)
         return saved | {"statement": task["statement"], "task_title": task["title"]}
+
+    def _log(self, experiment_id: str, line: str) -> None:
+        lines = [*require(self.store, "evolution_experiments", experiment_id).get("log", []), line[:300]]
+        self._update(experiment_id, log=lines[-60:])
 
     def _optimize(self, experiment_id, tasks, seed_text, component, context, loop):
         """Run GEPA in a worker thread; rollouts and reflection calls run on the event loop."""
@@ -713,12 +756,20 @@ class ExperimentService:
         limits = experiment["limits"]
         labels = {_hash(seed_text): "baseline"}
 
+        repeats = int(limits.get("rollouts_per_task", 1))
+
         def runner(task, text):
             label = labels.setdefault(_hash(text), f"candidate {len(labels)}")
             phase = "reflection" if task["split"] == "train" else "validation"
-            future = asyncio.run_coroutine_threadsafe(
-                self.rollout(experiment_id, task, text, context, phase=phase, candidate_label=label), loop)
-            return future.result()
+            records = []
+            for attempt in range(repeats):
+                future = asyncio.run_coroutine_threadsafe(
+                    self.rollout(experiment_id, task, text, context, phase=phase, candidate_label=label,
+                                 attempt=attempt), loop)
+                records.append(future.result())
+                if records[-1].get("outcome") == "skipped":
+                    break  # out of budget or time: later attempts would be skipped too
+            return combine_attempts(records)
 
         def reflect(prompt):
             messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
@@ -736,9 +787,8 @@ class ExperimentService:
             """GEPA's progress lines, kept on the experiment record for the UI."""
 
             def log(self, message):
-                lines = [*require(service.store, "evolution_experiments", experiment_id).get("log", []),
-                         str(message).splitlines()[0][:300] if str(message).strip() else ""]
-                service._update(experiment_id, log=[line for line in lines if line][-60:])
+                if str(message).strip():
+                    service._log(experiment_id, str(message).splitlines()[0])
 
         run_dir = self.root / "experiments" / experiment_id / "gepa"
         run_dir.mkdir(parents=True, exist_ok=True)

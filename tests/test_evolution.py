@@ -187,7 +187,7 @@ def test_budget_plan_counts():
                        splits, {"max_output_tokens": 32_768})
     assert plan["heldout_reserve_tokens"] == 6_400_000 and plan["search_tokens"] == 7_600_000
     assert plan["search_rollouts"] == {"all_rejected": 12, "all_accepted": 28, "fit_in_search_tokens": 19,
-                                       "max_metric_calls": 14}
+                                       "max_metric_calls": 14, "rollouts_per_task": 1}
     # With prices, the spending limit is a dollar pool with the same held-out reserve.
     priced = budget_plan({"rollout_tokens": 400_000, "experiment_tokens": 14_000_000, "max_cost_usd": 20.0,
                           "rollout_cost_usd": 0.5}, splits, {"input_price": 1.0, "output_price": 5.0})
@@ -484,3 +484,98 @@ def test_gate_reason_when_every_proposal_loses_its_minibatch(store, project, fak
                                "minibatch, so none was scored on validation."]
     assert len(result["proposals"]) >= 1
     assert not [r for r in result["rollouts"] if r["phase"] == "heldout"]
+
+
+def test_an_errored_rollout_is_retried_and_both_attempts_are_charged(store, project, fakes):
+    source = make_run(store, project)
+    seen = []
+
+    def flaky(task_id, candidate):
+        seen.append(task_id)
+        if task_id == "h1" and seen.count("h1") == 1:
+            return {"outcome": "error", "error": "Provider: response hit the output limit"}
+        return {}
+
+    fakes.override = flaky
+
+    async def scenario():
+        runtime = Runtime(store)
+        service = ExperimentService(store, runtime)
+        experiment = service.create(project["id"], role="code", run_ids=[source["id"]],
+                                    limits={"max_metric_calls": 6, "max_iterations": 2})
+        result = await finish(service, experiment)
+        await runtime.close()
+        return result
+
+    result = asyncio.run(scenario())
+    h1 = [r for r in result["rollouts"] if r["task_id"] == "h1" and r["candidate_label"] == "baseline"]
+    assert [(r["outcome"], r["retry"]) for r in h1] == [("error", 0), ("completed", 1)]
+    assert result["summary"]["gate"]["complete"]           # the retry, not the error, is compared
+    assert result["spent"]["rollouts"] == len(result["rollouts"])
+    assert any("Retrying h1" in line for line in result["log"])
+
+
+def test_error_retries_can_be_turned_off(store, project, fakes):
+    source = make_run(store, project)
+    fakes.override = lambda task_id, candidate: {"outcome": "error", "error": "boom"} if task_id == "h1" else {}
+
+    async def scenario():
+        runtime = Runtime(store)
+        service = ExperimentService(store, runtime)
+        experiment = service.create(project["id"], role="code", run_ids=[source["id"]],
+                                    limits={"max_metric_calls": 6, "max_iterations": 2, "error_retries": 0})
+        result = await finish(service, experiment)
+        await runtime.close()
+        return result
+
+    result = asyncio.run(scenario())
+    h1 = [r for r in result["rollouts"] if r["task_id"] == "h1"]
+    assert len(h1) == 2 and not result["summary"]["gate"]["complete"]   # one per arm, no retry
+
+
+def test_repeated_rollouts_average_search_scores(store, project, fakes):
+    source = make_run(store, project)
+    seen = []
+
+    def alternate(task_id, candidate):
+        seen.append(task_id)
+        if task_id == "v1" and candidate is None:  # the baseline solves v1 on its first attempt only
+            good = seen.count("v1") % 2 == 1
+            return {"score": float(good), "resolved": good, "fail_to_pass": [int(good), 1]}
+        return {}
+
+    fakes.override = alternate
+
+    async def scenario():
+        runtime = Runtime(store)
+        service = ExperimentService(store, runtime)
+        experiment = service.create(project["id"], role="code", run_ids=[source["id"]],
+                                    limits={"max_metric_calls": 6, "max_iterations": 1, "rollouts_per_task": 2,
+                                            "experiment_tokens": 6_000_000})
+        result = await finish(service, experiment)
+        await runtime.close()
+        return result
+
+    result = asyncio.run(scenario())
+    assert result["status"] == "completed", result.get("error")
+    v1 = [r for r in result["rollouts"] if r["task_id"] == "v1" and r["candidate_label"] == "baseline"]
+    assert sorted(r["attempt"] for r in v1) == [0, 1]
+    assert result["gepa"]["candidates"][0]["validation_score"] == 0.5
+    # Held-out evaluation stays one rollout per arm and task.
+    assert len([r for r in result["rollouts"] if r["phase"] == "heldout"]) == 4
+
+
+def test_combine_attempts_and_budget_plan_with_repeats():
+    from evo.evolve.service import budget_plan, combine_attempts
+
+    done = {"outcome": "completed", "fail_to_pass": [1, 1], "pass_to_pass": [1, 1]}
+    combined = combine_attempts([{**done, "score": 1.0, "resolved": True},
+                                 {"outcome": "skipped", "score": 0.0},
+                                 {**done, "score": 0.0, "resolved": False}])
+    assert combined["score"] == 0.5 and combined["resolved"] is False and len(combined["attempts"]) == 3
+    assert combine_attempts([{"outcome": "skipped", "score": 0.0}])["outcome"] == "skipped"
+    plan = budget_plan({"rollout_tokens": 1000, "experiment_tokens": 100_000, "max_iterations": 2,
+                        "reflection_minibatch_size": 1, "max_metric_calls": 14, "rollouts_per_task": 2},
+                       {"train": ["a"], "validation": ["b", "c"], "heldout": ["d"]}, {})
+    assert plan["search_rollouts"]["all_rejected"] == 2 * (2 + 2 * 2 * 1)
+    assert plan["final_rollouts"] == 2   # held-out is not repeated

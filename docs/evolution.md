@@ -10,14 +10,14 @@ One component per experiment: the **project-specific instructions for the Code r
 
 Experiments use the official [`gepa`](https://github.com/gepa-ai/gepa) package (v0.1.4; Agrawal et al., 2025, *GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning*) through an adapter (`src/evo/evolve/adapter.py`):
 
-- `evaluate` runs one EVO rollout per task and returns its hidden-test score.
+- `evaluate` runs EVO rollouts on each task and returns the hidden-test score. With *rollouts per search evaluation* above 1, it runs that many rollouts and returns their mean over the scored attempts. The reflection model sees the first scored attempt plus every attempt's outcome and score.
 - `make_reflective_dataset` gives GEPA's reflection model the task, the agent's diff, commands and final message, and feedback from the hidden tests. This covers **reflection (train) tasks only**.
 - GEPA runs its own loop:
   - Pareto candidate selection;
   - minibatch reflection;
   - acceptance only on improvement;
   - the baseline is kept as candidate 0 throughout.
-- Limits stop it: GEPA proposals, metric calls (rollouts), the search token pool (see **Budget**), a spending cap (when prices are set in Settings), wall time, and cancellation.
+- Limits stop it: GEPA proposals, metric calls (task evaluations; each costs *rollouts per search evaluation* rollouts), the search token pool (see **Budget**), a spending cap (when prices are set in Settings), wall time, and cancellation.
 
 The reflection prompt includes your objective and recorded events from the source runs you select. It asks for general guidance and forbids mentioning specific issues, hidden tests or evaluator files.
 
@@ -37,6 +37,12 @@ The reflection prompt includes your objective and recorded events from the sourc
    - nothing changed outside `src/`, `testing/`, `changelog/`, `doc/` and `AUTHORS`.
 4. **Reference verification**, run twice. When the bundle is built, the fix's tests must fail on the snapshot and pass with the fix. Then, independently, the scorer rollouts use must give the untouched snapshot a score below 1 (unresolved) and resolve the reference fix.
 5. One task per issue (the earliest PR wins).
+
+**Version 2 (not yet applied to the catalog).** Two rules are relaxed to reach harder issues, because the baseline already solves most of the version-1 tasks (see the runs below):
+- the issue may predate the window. Its body is in the mirror, but comments from before the window aren't, so its statement can be incomplete. Each candidate records `issue_comments_complete`;
+- the fix may touch up to 6 source files and 250 changed lines.
+
+When a catalog already exists, its tasks keep their splits so earlier experiments stay comparable. A new task joins the search (alternating reflection and validation by date) if its fix was merged before the earliest held-out snapshot, is held out if its snapshot is at or after that date, and is excluded if it straddles it. `--fresh` reassigns every split instead.
 
 Rerunning `python -m evo.evolve.select_tasks --data-dir <dir>` rebuilds the catalog and `pytest_selection.json`. That file is the full report: every candidate, why it was excluded, verification counts, and pairs of tasks that touch the same source file.
 
@@ -152,6 +158,7 @@ The token budget is enforced **before** each model call, not after the fact.
 - **Settlement is atomic.** Recording a call's usage and removing its reservation happen in one database transaction, so a crash can neither lose the usage nor count it twice. The same applies to unresolved charges, and to a rollout's settlement: the experiment's spending, the release of its reservation and the rollout's *settled* mark are committed together, with the settled check inside the transaction.
 - **Restarts.** At startup, reservations saved by the previous process become unresolved charges. Each rollout is also recorded with its reservation before it starts. If EVO stops mid-rollout, the experiment is charged the usage the rollout recorded in its own store, including its unresolved and in-flight tokens. If that can't be read, it is charged the full reservation. Settlement happens once (recovery and resume both reconcile first, and repeating it changes nothing). An experiment stopped by shutdown is marked *interrupted*.
 - **Two pools per experiment.** At creation, the experiment reserves enough for the final paired comparison: 2 arms × held-out tasks × tokens per rollout (skill comparisons also reserve validation). The search (GEPA rollouts and reflection) can only spend the rest. A reflection call is admitted only if it fits *together with* the child rollouts needed to test its proposal. An experiment whose budget can't cover the reserve plus one testable proposal is refused, with the numbers.
+- **Repeats and retries.** *Rollouts per search evaluation* (default 1, at most 3) multiplies every search rollout count in the plan, and an experiment that can't afford one testable proposal at that rate is refused. Held-out evaluation stays one rollout per arm and task. A rollout that ends in an error (provider or harness) is rerun up to *retries after an error* times (default 1, 0 turns it off). The failed attempt stays in the ledger with its cost, and the retry passes through the same budget admission.
 - **Rollouts always get the full per-rollout cap.** A rollout that would not fit is skipped rather than run with less, so results stay comparable. The pool is charged actual usage, so the number of search rollouts isn't fixed. "N rollouts" in a plan means N affordable at the full cap; more fit when rollouts finish below it.
 - **Spending limit (dollars).** With prices set (Settings → Runtime settings), the spending limit is a hard dollar limit.
   - Each call is admitted against its worst-case cost: its input bound at the higher of the input and cache-write prices (no cache discount is assumed) plus the full output limit at the output price.
@@ -257,3 +264,5 @@ Neither run produced a candidate, so the held-out tasks were never run and nothi
 - **Too little headroom.** The baseline solves about 80% of the reflection tasks. The failures it does have (14389 at 0, 14462 and 14371 partial) were failed the same way by every proposal, so a minibatch of three rarely leaves room to win.
 - **Noise.** Baseline validation went from 5/8 to 4/8 between runs. In run 2, 14434 and 14638 failed even with the larger cap, and 14474 ended in a provider error: one response hit the output-token limit (`incomplete:max_output_tokens`) and was scored 0. One task changes the validation score by 0.125, which is as large as any effect these instruction changes could plausibly have.
 - **Takeaway.** On this task set, generic test-first instructions don't measurably change outcomes for this model. A useful next experiment needs reflection tasks the baseline actually fails, more than one rollout per task to average out noise, and a decision on whether provider errors should be retried rather than scored. Running the same configuration again would mostly spend money on ties.
+
+Follow-up code (not yet run): selection criteria version 2 for harder tasks, repeated rollouts per search evaluation, and retries after an error, all described above.
