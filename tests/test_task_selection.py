@@ -2,7 +2,7 @@
 
 import pytest
 
-from evo.evolve.select_tasks import assign_splits
+from evo.evolve.select_tasks import assign_splits, extend_splits
 
 
 def task(task_id, as_of, merged):
@@ -42,3 +42,20 @@ def test_no_valid_boundary_is_an_error():
              task("pytest-14483", "2026-05-01T00:00:00Z", "2026-05-02T00:00:00Z")]
     with pytest.raises(RuntimeError):
         assign_splits(tasks, heldout_target=1)
+
+
+def test_extending_keeps_existing_splits_and_places_new_tasks_on_the_boundary():
+    tasks = [task("old-train", "2026-04-01T00:00:00Z", "2026-04-02T00:00:00Z"),
+             task("old-val", "2026-04-05T00:00:00Z", "2026-04-06T00:00:00Z"),
+             task("old-held", "2026-08-01T00:00:00Z", "2026-08-02T00:00:00Z"),
+             task("new-1", "2026-03-01T00:00:00Z", "2026-04-20T00:00:00Z"),
+             task("new-2", "2026-05-01T00:00:00Z", "2026-07-30T00:00:00Z"),
+             task("new-late", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z"),
+             task("new-straddle", "2026-07-20T00:00:00Z", "2026-08-05T00:00:00Z")]
+    fixed = {"old-train": "train", "old-val": "validation", "old-held": "heldout"}
+    straddling = extend_splits(tasks, fixed)
+    split = {t["id"]: t.get("split") for t in tasks}
+    assert {k: split[k] for k in fixed} == fixed
+    assert (split["new-1"], split["new-2"]) == ("train", "validation")
+    assert split["new-late"] == "heldout"
+    assert [t["id"] for t in straddling] == ["new-straddle"]

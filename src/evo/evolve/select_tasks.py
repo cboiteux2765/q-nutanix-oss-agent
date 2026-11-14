@@ -10,11 +10,14 @@ Selection criteria (a candidate must meet all of them):
 
 1. The pull request was merged into `main` and opened inside the mirrored window, so its
    discussion, reviews and CI were mirrored in full.
-2. Its description closes exactly one issue ("closes/fixes/resolves #N"). That issue was opened
-   inside the window (so its comments were mirrored) and before the pull request.
-3. The fix is small and self-contained: 1-3 Python files under `src/`, at most 80 changed source
-   lines, at least one changed test file under `testing/`, and no changed files other than
-   `src/`, `testing/`, `changelog/`, `doc/` and the `AUTHORS` list (no packaging or CI changes).
+2. Its description closes exactly one issue ("closes/fixes/resolves #N"), opened before the pull
+   request and with a description. Since version 2 the issue may predate the window: its body is
+   in the mirror, but comments from before the window are not, so the statement holds only the
+   comments mirrored by then (recorded as `issue_comments_complete`).
+3. The fix is self-contained: 1-6 Python files under `src/`, at most 250 changed source lines
+   (version 1: 3 files, 80 lines), at least one changed test file under `testing/`, and no changed
+   files other than `src/`, `testing/`, `changelog/`, `doc/` and the `AUTHORS` list (no packaging
+   or CI changes).
 4. Reference verification on the as-of snapshot (see tasks.py): the fix's patch applies, at least
    one of its tests fails before the source change and passes after it, and the test run finishes
    within the check timeout. Tests that cannot run here (for example skipped on Windows) never
@@ -22,12 +25,17 @@ Selection criteria (a candidate must meet all of them):
 5. One task per issue. When two candidates close the same issue, or an issue was marked a
    duplicate of another candidate's issue, the earliest pull request is kept.
 
-Split rule: held-out tasks are the newest. The boundary is placed so every reflection and
+Split rule (fresh catalog): held-out tasks are the newest. The boundary is placed so every reflection and
 validation fix was merged before the earliest held-out snapshot, so nothing the search sees is
 newer than any held-out task. Reflection and validation tasks are interleaved in time (assigned
 round-robin by snapshot date). Tasks already used by an experiment keep their role: a task the
 search has seen is never held out, and a held-out task is never searched (the same rule the
 service enforces).
+
+Extending a catalog: tasks already in `pytest_tasks.json` keep their split, so earlier experiments
+stay comparable. A new task joins the search (alternating reflection and validation by date) when
+its fix was merged before the earliest held-out snapshot, is held out when its snapshot is at or
+after that boundary, and is excluded when it straddles it.
 """
 
 from __future__ import annotations
@@ -47,12 +55,12 @@ CLOSES = re.compile(r"(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[:\s]+"
                     r"(?:https://github\.com/pytest-dev/pytest/issues/|#)(\d+)")
 ALLOWED_PREFIXES = ("src/", "testing/", "changelog/", "doc/")
 ALLOWED_FILES = {"AUTHORS"}  # the contributor list; first-time contributors add themselves
-MAX_SOURCE_FILES = 3
-MAX_SOURCE_LINES = 80
+MAX_SOURCE_FILES = 6
+MAX_SOURCE_LINES = 250
 # Roles fixed by experiments that already ran on these tasks (the 2026-11-12 live experiment used
 # 14492 for reflection, 14483 for validation and held out 15132).
 EXPOSED = {"pytest-14483": "search", "pytest-14492": "search", "pytest-15132": "heldout"}
-CRITERIA_VERSION = 1
+CRITERIA_VERSION = 2
 
 
 def _numstat(git_dir: Path, merge: str) -> list[tuple[int, int, str]]:
@@ -101,9 +109,7 @@ def discover() -> list[dict]:
             if issue[1]:
                 entry["excluded"] = "closing reference points to a pull request"
                 continue
-            if not issue[5]:
-                entry["excluded"] = "issue opened before the mirrored window (comments not mirrored)"
-                continue
+            entry["issue_comments_complete"] = bool(issue[5])
             if issue[4] >= created:
                 entry["excluded"] = "issue opened after the pull request"
                 continue
@@ -186,11 +192,37 @@ def assign_splits(tasks: list[dict], heldout_target: int) -> None:
         task["split"] = ("train", "validation")[index % 2]
 
 
+def extend_splits(tasks: list[dict], fixed: dict[str, str]) -> list[dict]:
+    """Keep the splits in `fixed`; place new tasks on the existing chronological boundary.
+
+    Returns the new tasks that straddle the boundary (they are left out of the catalog)."""
+    kept = [t for t in tasks if t["id"] in fixed]
+    for task in kept:
+        task["split"] = fixed[task["id"]]
+    heldout_from = min(t["as_of"] for t in kept if t["split"] == "heldout")
+    straddling, search = [], []
+    for task in sorted((t for t in tasks if t["id"] not in fixed), key=lambda t: t["as_of"]):
+        if task["merged_at"] < heldout_from:
+            search.append(task)
+        elif task["as_of"] >= heldout_from:
+            task["split"] = "heldout"
+        else:
+            straddling.append(task)
+    for index, task in enumerate(search):
+        task["split"] = ("train", "validation")[index % 2]
+    placed = [t for t in tasks if t not in straddling]
+    if max(t["merged_at"] for t in placed if t["split"] != "heldout") >=             min(t["as_of"] for t in placed if t["split"] == "heldout"):
+        raise RuntimeError("Extending the catalog would break chronological separation.")
+    return straddling
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--data-dir", required=True, help="Where to build and verify the task bundles.")
     parser.add_argument("--heldout", type=int, default=8, help="Target number of held-out tasks.")
     parser.add_argument("--discover-only", action="store_true")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Reassign every split instead of keeping the current catalog's.")
     args = parser.parse_args()
 
     candidates = discover()
@@ -233,10 +265,18 @@ def main() -> None:
                          "fix_commit": task["fix_commit"]})
         print(f"  verified {spec['id']}: {c['verification']}", flush=True)
 
-    assign_splits(verified, args.heldout)
+    previous = {t["id"]: t["split"] for t in json.loads(CATALOG.read_text(encoding="utf-8"))["tasks"]}         if CATALOG.exists() and not args.fresh else {}
+    if previous:
+        straddling = extend_splits(verified, previous)
+        for task in straddling:
+            entry = next(c for c in candidates if c.get("issue") == task["issue"] and not c["excluded"])
+            entry["excluded"] = "fix merged after the earliest held-out snapshot but opened before it"
+        verified = [t for t in verified if t not in straddling]
+    else:
+        assign_splits(verified, args.heldout)
     verified.sort(key=lambda t: t["as_of"])
     catalog = {
-        "description": "Real pytest issues fixed by small merged pull requests, selected by "
+        "description": "Real pytest issues fixed by merged pull requests, selected by "
                        "src/evo/evolve/select_tasks.py (criteria in its docstring). Held-out tasks are the "
                        "newest, and every reflection/validation fix predates the earliest held-out snapshot. "
                        "Held-out results are computed once per experiment and never shown to the optimizer.",
@@ -249,6 +289,7 @@ def main() -> None:
     report = {
         "criteria_version": CRITERIA_VERSION, "generated_at": datetime.now().isoformat(timespec="seconds"),
         "mirror": {"window_start": "2026-04-01", "source": "capstone replay mirror (history.db + repo.git)"},
+        "splits_kept_from_previous_catalog": len(previous),
         "counts": {"candidates": len(candidates), "verified": len(verified),
                    "splits": dict(Counter(t["split"] for t in verified))},
         "boundary": {"latest_search_fix_merged": max(t["merged_at"] for t in verified if t["split"] != "heldout"),
