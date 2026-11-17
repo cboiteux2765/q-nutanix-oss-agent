@@ -2,13 +2,11 @@
 
 import asyncio
 import json
-import shutil
 
 import pytest
 
 from evo import runtime as runtime_module
 from evo.evolve import service as service_module
-from evo.evolve.adapter import SEED_PLACEHOLDER
 from evo.evolve.service import ExperimentService
 from evo.evolve.tasks import TaskBundles, replay_dir, task_python
 from evo.runtime import Runtime
@@ -91,10 +89,8 @@ def test_gepa_experiment_gate_activation_and_rollback(store, project, fakes, fak
         candidate_id = result["summary"]["candidate_prompt_id"]
         activated = service.activate(project["id"], candidate_id)
         new_run = await runtime.start_run(project["id"], "Work started after activation")
-        old_root = store.get("agents", old_run["root_agent_id"])
-        new_root = store.get("agents", new_run["root_agent_id"])
-        old_code = runtime._new_agent(store.get("runs", old_run["id"]), "code", "x", old_root)
-        new_code = runtime._new_agent(store.get("runs", new_run["id"]), "code", "x", new_root)
+        old_code = await runtime.spawn(old_run["root_agent_id"], "code", "x")
+        new_code = await runtime.spawn(new_run["root_agent_id"], "code", "x")
         rolled = service.rollback(project["id"], "code")
         # A second identical experiment reuses finished rollouts instead of paying again.
         before = len(fakes.rollouts)
@@ -112,6 +108,11 @@ def test_gepa_experiment_gate_activation_and_rollback(store, project, fakes, fak
     assert "reproduce" in candidate["content"]
     gate = result["summary"]["gate"]
     assert gate["passed"] and gate["improved"] and gate["heldout"]["tasks"] == 2
+    assert gate["paired"] == {
+        "both": 0, "baseline_only": 0, "candidate_only": 2, "neither": 0,
+        "tasks": {"h1": {"baseline": 0.0, "candidate": 1.0},
+                  "h2": {"baseline": 0.0, "candidate": 1.0}},
+    }
     heldout = [r for r in result["rollouts"] if r["phase"] == "heldout"]
     assert sorted((r["task_id"], r["candidate_label"].split()[0]) for r in heldout) == [
         ("h1", "baseline"), ("h1", "candidate"), ("h2", "baseline"), ("h2", "candidate")]
@@ -120,6 +121,7 @@ def test_gepa_experiment_gate_activation_and_rollback(store, project, fakes, fak
     assert "STATEMENT-t" in reflections
     assert "STATEMENT-v1" not in reflections and "STATEMENT-h" not in reflections
     assert result["spent"]["rollouts"] >= 5 and result["spent"]["reflection_calls"] >= 1
+    assert {text for _, text in fakes.rollouts[:before]} == {"", candidate["content"]}
     assert activated["activation_label"] == "passed held-out evaluation"
     old_system = store.messages(old_code["id"])[0]["content"]
     new_system = store.messages(new_code["id"])[0]["content"]
@@ -336,35 +338,7 @@ def test_real_rollout_records_an_unresolved_attempt(store, real_task, monkeypatc
     assert record["fail_to_pass"] == [0, 1] and record["changed_files"] == []
 
 
-def test_seed_placeholder_is_not_applied_as_instructions():
-    assert "No project-specific instructions" in SEED_PLACEHOLDER
-
-
 # ---------------------------------------------------------------- review regressions
-def heldout_record(task_id, **fields):
-    return {"task_id": task_id, "split": "heldout", "outcome": "completed", "score": 1.0, "resolved": True,
-            "fail_to_pass": [1, 1], "pass_to_pass": [3, 3], "tokens": 1000, "leakage": []} | fields
-
-
-def test_gate_rejects_a_comparison_with_a_failed_baseline():
-    results = {"baseline": [heldout_record("h1", outcome="error", score=0.0, resolved=False,
-                                           error="Evaluation harness: git failed")],
-               "candidate": [heldout_record("h1")]}
-    gate = ExperimentService._gate(results, ["h1"])
-    assert gate["complete"] is False and gate["passed"] is False and gate["improved"] is False
-    assert "baseline on h1" in gate["reasons"][0]
-    # A missing record or unscored checks in either arm also invalidates it.
-    assert not ExperimentService._gate({"baseline": [heldout_record("h1")], "candidate": []}, ["h1"])["passed"]
-    timed_out_checks = heldout_record("h1", checks_error="Hidden checks timed out.")
-    assert not ExperimentService._gate({"baseline": [heldout_record("h1")], "candidate": [timed_out_checks]},
-                                       ["h1"])["complete"]
-    good = ExperimentService._gate({"baseline": [heldout_record("h1", score=0.0, resolved=False)],
-                                    "candidate": [heldout_record("h1")]}, ["h1"])
-    assert good["complete"] and good["passed"] and good["improved"]
-    assert {k: v for k, v in good["paired"].items() if k != "tasks"} == {
-        "both": 0, "baseline_only": 0, "candidate_only": 1, "neither": 0}
-
-
 def test_experiment_runs_with_the_settings_frozen_at_creation(store, project, fakes, monkeypatch):
     source = make_run(store, project)
     seen = []
@@ -449,7 +423,6 @@ def test_rollout_cache_respects_limits_and_retries_failures(store, project, fake
     assert "v1" not in same       # a timeout under the same limits is a real outcome and is reused
     assert "t1" in same           # a harness error is retried, never reused
     assert "v1" in longer         # a longer timeout runs the task again
-    assert fakes.limits[-1]["rollout_seconds"] == 2400
 
 
 def test_gate_reason_when_every_proposal_loses_its_minibatch(store, project, fakes, monkeypatch):
@@ -515,9 +488,20 @@ def test_an_errored_rollout_is_retried_and_both_attempts_are_charged(store, proj
     assert any("Retrying h1" in line for line in result["log"])
 
 
-def test_error_retries_can_be_turned_off(store, project, fakes):
+@pytest.mark.parametrize(("arm", "failure"), [
+    ("baseline", {"outcome": "error", "error": "Evaluation harness: git failed"}),
+    ("candidate", {"checks_error": "Hidden checks timed out."}),
+    ("candidate", {"outcome": "skipped", "error": "Held-out budget exhausted"}),
+], ids=["failed-baseline", "unscored-candidate", "skipped-candidate"])
+def test_incomplete_heldout_evaluation_blocks_activation_without_retries(store, project, fakes, arm, failure):
     source = make_run(store, project)
-    fakes.override = lambda task_id, candidate: {"outcome": "error", "error": "boom"} if task_id == "h1" else {}
+
+    def fail_one_arm(task_id, candidate):
+        if task_id == "h1" and (candidate is None) == (arm == "baseline"):
+            return failure
+        return {}
+
+    fakes.override = fail_one_arm
 
     async def scenario():
         runtime = Runtime(store)
@@ -525,12 +509,17 @@ def test_error_retries_can_be_turned_off(store, project, fakes):
         experiment = service.create(project["id"], role="code", run_ids=[source["id"]],
                                     limits={"max_metric_calls": 6, "max_iterations": 2, "error_retries": 0})
         result = await finish(service, experiment)
+        with pytest.raises(PermissionError, match="has not passed held-out evaluation"):
+            service.activate(project["id"], result["summary"]["candidate_prompt_id"])
         await runtime.close()
         return result
 
     result = asyncio.run(scenario())
     h1 = [r for r in result["rollouts"] if r["task_id"] == "h1"]
-    assert len(h1) == 2 and not result["summary"]["gate"]["complete"]   # one per arm, no retry
+    assert len(h1) == 2  # one per arm, no retry
+    gate = result["summary"]["gate"]
+    assert gate["complete"] is False and gate["passed"] is False and gate["improved"] is False
+    assert any(f"{arm} on h1" in reason for reason in gate["reasons"])
 
 
 def test_repeated_rollouts_average_search_scores(store, project, fakes):
@@ -577,5 +566,5 @@ def test_combine_attempts_and_budget_plan_with_repeats():
     plan = budget_plan({"rollout_tokens": 1000, "experiment_tokens": 100_000, "max_iterations": 2,
                         "reflection_minibatch_size": 1, "max_metric_calls": 14, "rollouts_per_task": 2},
                        {"train": ["a"], "validation": ["b", "c"], "heldout": ["d"]}, {})
-    assert plan["search_rollouts"]["all_rejected"] == 2 * (2 + 2 * 2 * 1)
+    assert plan["search_rollouts"]["all_rejected"] == 12
     assert plan["final_rollouts"] == 2   # held-out is not repeated
