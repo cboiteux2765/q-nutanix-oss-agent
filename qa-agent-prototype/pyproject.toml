@@ -9,6 +9,15 @@ description = "QA phase for EVO: verdicts on PRs that passed the Test Agent"
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.10,<3", "bandit>=1.7,<2", "pytest>=8,<10"]
 
+[project.optional-dependencies]
+prime = ["mcp>=2.3,<3"]
+
+[project.scripts]
+evo-qa-tools = "app.prime_mcp:main"
+
+[tool.setuptools.package-data]
+app = ["data/*.json"]
+
 [tool.setuptools.packages.find]
 include = ["app*"]
 

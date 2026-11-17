@@ -1,5 +1,15 @@
 # EVO QA Agent Prototype (phase 1)
 
+## New primary integration: QA tools for Prime
+
+Prime owns agent creation and workflow decisions. This package now exposes
+`qa_inspect`, `qa_scan`, and `qa_review` as optional MCP tools with operator-owned
+target registration, tool grants, structured results, and audit events.
+See [Prime QA setup, permissions, system diagram and tradeoffs](docs/PRIME_QA.md).
+
+Install the optional transport with `python -m pip install -e '.[prime]'`.
+Existing CLI commands and Test evidence review below remain supported.
+
 A runnable Python prototype of the QA phase. It picks up where the Test Agent stops: it reads the Test Agent's `verification.json`, refuses to start unless that handoff is `READY_FOR_QA` for the current PR head, assigns a risk tier, runs real scanners on what the PR changed, and returns one verdict with evidence.
 
 Everything runs offline against local Git repositories. No GitHub, cloud, or model account is needed. QA never pushes, merges, or deploys.
@@ -13,7 +23,7 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python demo_acceptance.py          # 8 scenarios, prints PASS lines
-python -m pytest -q                # 88 standalone tests; 90 with team prototypes alongside QA
+python -m pytest -q                # 106 pass with the prime extra; 2 more need sibling team prototypes
 ```
 
 Each demo run writes a new folder under `demo-output/` with a fixture repo, a `verification.json`, and QA's `qa_report.md` + `qa_decision.json` for every scenario.
