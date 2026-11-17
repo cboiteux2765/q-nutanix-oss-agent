@@ -1,8 +1,8 @@
 """Strict token budgets: retries, unknown usage, restarts mid-rollout, cache writes, price tier."""
 
 import asyncio
-import json
 
+import httpx
 import pytest
 
 from evo.budget import PriceTierExceeded, confirm_price_tier
@@ -164,15 +164,23 @@ def test_an_unreadable_interrupted_rollout_is_charged_its_full_reservation(store
 
 
 def test_cache_writes_are_priced_separately():
-    provider = ModelProvider({"api_style": "responses", "base_url": "http://127.0.0.1:9/v1", "model": "m",
-                              "input_price": 1.0, "cached_input_price": 0.05, "output_price": 5.0,
-                              "cache_write_price": 1.25}, "")
-    response = provider._decode({"status": "completed", "output": [], "usage": {
+    payload = {"status": "completed", "output": [], "usage": {
         "input_tokens": 1_000_000, "output_tokens": 0,
-        "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 1_000_000}}}, True)
+        "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 1_000_000}}}
+
+    async def scenario():
+        provider = ModelProvider({"api_style": "responses", "base_url": "http://127.0.0.1:9/v1", "model": "m",
+                                  "input_price": 1.0, "cached_input_price": 0.05, "output_price": 5.0,
+                                  "cache_write_price": 1.25}, "",
+                                 transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+        try:
+            return await provider.complete([{"role": "user", "content": "hi"}])
+        finally:
+            await provider.close()
+
+    response = run_async(scenario())
     assert response.usage["cache_write"] == 1_000_000
     assert response.usage["cost_usd"] == pytest.approx(1.25)
-    asyncio.run(provider.close())
 
 
 def test_requests_that_could_cross_the_price_tier_are_counted_or_refused():
@@ -197,7 +205,6 @@ def test_requests_that_could_cross_the_price_tier_are_counted_or_refused():
         asyncio.run(check(Client(300_000), 900_000))
     # A long-context input budget is an explicit choice of the higher tier.
     asyncio.run(check(Client(None), 900_000, {"context_tokens": 600_000}))
-    json.dumps(settings)
 
 
 def test_a_request_cancelled_in_flight_is_charged_its_reservation(store, project, fake_provider):
@@ -303,8 +310,6 @@ def test_a_crash_while_settling_a_rollout_cannot_charge_it_twice(store, project,
 
 
 def test_server_and_gateway_errors_are_treated_as_possibly_billed():
-    import httpx
-
     def provider_with(status):
         replies = iter([httpx.Response(status, json={"error": {"message": "upstream"}}),
                         httpx.Response(200, json={"status": "completed", "output": [], "usage": {
@@ -331,12 +336,19 @@ def test_server_and_gateway_errors_are_treated_as_possibly_billed():
     assert seen == [False]
 
 
-def test_incomplete_usage_keeps_a_conservative_charge(store, project, fake_provider):
-    provider = ModelProvider({"api_style": "responses", "base_url": "http://127.0.0.1:9/v1", "model": "m"}, "")
-    decoded = provider._decode({"status": "completed", "output": [], "usage": {"input_tokens": 100}}, True)
-    asyncio.run(provider.close())
-    assert decoded.usage["reported"] is False and decoded.usage["input"] == 100
-    fake_provider.script = [ModelResponse("Done.", usage=decoded.usage, finish_reason="stop")]
+def test_incomplete_usage_keeps_a_conservative_charge(store, project, monkeypatch):
+    from evo import runtime as runtime_module
+
+    store.put("settings", "provider", {"api_style": "responses"})
+    payload = {"status": "completed", "usage": {"input_tokens": 100}, "output": [
+        {"type": "message", "content": [{"type": "output_text", "text": "Done."}]}]}
+
+    class Provider(ModelProvider):
+        def __init__(self, settings, api_key, transport=None):
+            super().__init__(settings, api_key,
+                             transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+
+    monkeypatch.setattr(runtime_module, "ModelProvider", Provider)
 
     async def scenario():
         runtime = Runtime(store)
@@ -345,7 +357,9 @@ def test_incomplete_usage_keeps_a_conservative_charge(store, project, fake_provi
         await runtime.close()
         return run["id"]
 
-    usage = usage_of(store, run_async(scenario()))
+    run = store.get("runs", run_async(scenario()))
+    assert run["status"] == "waiting", run.get("error")
+    usage = run["token_usage"]
     assert usage["input"] == 100 and usage["output"] == 0
     assert usage["unresolved"] > 1000  # the rest of the reservation, not zero
 
@@ -353,7 +367,6 @@ def test_incomplete_usage_keeps_a_conservative_charge(store, project, fake_provi
 def test_a_malformed_stream_after_submission_is_charged(store, project, monkeypatch):
     """The reviewer's reproduction, through the real provider: HTTP 200, then a stream event that
     breaks parsing (AttributeError). The submitted request keeps its reservation as unresolved."""
-    import httpx
     from evo import runtime as runtime_module
 
     store.put("settings", "provider", {"api_style": "responses"})
