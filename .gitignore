@@ -18,3 +18,4 @@ frontend/*.tsbuildinfo
 runs/
 specifications/*.md
 product-spec-demo-site.tar.gz
+/uv.lock
