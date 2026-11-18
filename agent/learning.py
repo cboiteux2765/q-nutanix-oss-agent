@@ -29,6 +29,11 @@ JUDGE_SCHEMA = obj(results=array(obj(scenario_id=STRING, baseline=STRING,
                                     candidate=STRING, rationale=STRING)))
 TOOL_SCHEMA = obj(tool_requests=array(obj(name=STRING, query=STRING)))
 CATEGORIES = {'happy_path', 'edge_case', 'missing_evidence', 'conflicting_feedback'}
+# Small models read input/expected as unit-test arguments (e.g. input "" for an empty-input case).
+SCENARIO_FIELDS = ('Every field is a nonempty sentence. id is SC-N. input describes the situation the '
+                   'specification must handle, in words (for example: The issue asks that parse be called with an '
+                   'empty string). expected states what a good specification must say about it. Describe empty '
+                   'or missing values in words; never leave a field empty.')
 
 
 def now():
@@ -188,7 +193,7 @@ class Workspace:
 
 
 def validate_scenarios(value, sources):
-    check_shape(value, SCENARIO_SCHEMA)
+    check_shape(value, SCENARIO_SCHEMA, 'scenarios')
     cases = value['scenarios']
     if not 4 <= len(cases) <= 12 or len({c['id'] for c in cases}) != len(cases):
         raise ValueError('Expected 4–12 uniquely identified scenarios.')
@@ -200,7 +205,7 @@ def validate_scenarios(value, sources):
 
 
 def evaluate(judgment, scenarios, baseline, candidate):
-    check_shape(judgment, JUDGE_SCHEMA)
+    check_shape(judgment, JUDGE_SCHEMA, 'critic')
     rows = judgment['results']
     if len(rows) != len(scenarios) or {r['scenario_id'] for r in rows} != {s['id'] for s in scenarios}:
         raise ValueError('Critic must evaluate each scenario exactly once.')
@@ -288,7 +293,7 @@ class Orchestrator:
                         context = {**context, 'tool_results': context['tool_results'] + outputs}
                         event(role, 'running', 'Product tools returned; collecting final result')
                         result = await self.backend.query(role, instruction, context, schema)
-                    check_shape(result, schema)
+                    check_shape(result, schema, role)
                     if validator:
                         validator(result)
                     event(role, 'completed', 'Structured result collected')
@@ -297,7 +302,11 @@ class Orchestrator:
                     if attempt:
                         event(role, 'error', str(exc))
                         raise
+                    # The repair turn states the exact problems and asks for the final schema only.
                     context = {**context, 'validation_error': str(exc)}
+                    instruction += (f'\nYour previous output failed validation: {exc} Return the complete '
+                                    'corrected JSON for the schema, keeping everything that was valid.')
+                    used_tools = True
                 except Exception:
                     event(role, 'error', 'Model connection or runtime failed')
                     raise
@@ -314,7 +323,7 @@ class Orchestrator:
                 child('research', BRIEF_PROMPT, payload, BRIEF_SCHEMA,
                       lambda x: validate(x, payload['sources'])),
                 child('prompt', 'Propose a complete concise product-spec prompt revision using the active prompt and reviewer feedback. Explain the change. Keep evidence and human decision rules.', context, PROMPT_SCHEMA),
-                child('scenarios', 'Create 4–12 product-spec evaluation scenarios across categories happy_path, edge_case, missing_evidence, conflicting_feedback. Each scenario tests the quality of a specification, not executable code. Cite supplied source IDs.', payload, SCENARIO_SCHEMA,
+                child('scenarios', 'Create 4–12 product-spec evaluation scenarios across categories happy_path, edge_case, missing_evidence, conflicting_feedback. Each scenario tests the quality of a specification, not executable code. Cite supplied source IDs. ' + SCENARIO_FIELDS, payload, SCENARIO_SCHEMA,
                       lambda x: validate_scenarios(x, payload['sources'])), return_exceptions=True)
             for result in results:
                 if isinstance(result, BaseException):

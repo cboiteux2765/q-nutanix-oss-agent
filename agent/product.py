@@ -55,7 +55,7 @@ def add_documents(run, paths):
 
 
 def validate(brief, sources):
-    check_shape(brief, SCHEMA)
+    check_shape(brief, SCHEMA, "brief")
     known = {s['id']: s for s in sources}
     for group in ('users', 'desired_outcomes', 'user_stories'):
         for item in brief[group]:

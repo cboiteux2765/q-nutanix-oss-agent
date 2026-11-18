@@ -123,53 +123,70 @@ def request_draft(payload, model):
                                   "llm_cost_usd": None}
 
 
-def check_shape(value, schema, path="draft"):
-    """Validate the small schema subset used above; not a general JSON Schema engine."""
+def shape_errors(value, schema, path="draft"):
+    """Every mismatch with the small schema subset used here, with exact paths.
+
+    Not a general JSON Schema engine. Messages name the field and item so a model can repair
+    its output in one turn (e.g. "brief.users[0]: missing field 'source_ids'").
+    """
     kind = schema["type"]
     if kind == "object":
-        if not isinstance(value, dict) or set(value) != set(schema["properties"]):
-            raise ValueError(f"{path}: missing or unexpected fields.")
+        if not isinstance(value, dict):
+            return [f"{path}: expected an object with fields {', '.join(schema['properties'])}."]
+        errors = [f"{path}: missing field {k!r}." for k in schema["properties"] if k not in value]
+        errors += [f"{path}: unexpected field {k!r}." for k in value if k not in schema["properties"]]
         for key, child in schema["properties"].items():
-            check_shape(value[key], child, f"{path}.{key}")
-    elif kind == "array":
+            if key in value:
+                errors += shape_errors(value[key], child, f"{path}.{key}")
+        return errors
+    if kind == "array":
         if not isinstance(value, list):
-            raise ValueError(f"{path}: expected a list.")
-        for item in value:
-            check_shape(item, schema["items"], path)
-    elif not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{path}: expected nonempty text.")
+            return [f"{path}: expected a list."]
+        return [e for i, item in enumerate(value) for e in shape_errors(item, schema["items"], f"{path}[{i}]")]
+    return [] if isinstance(value, str) and value.strip() else [f"{path}: expected nonempty text."]
+
+
+def check_shape(value, schema, path="draft"):
+    """Raise ValueError naming every shape problem (at most 12 listed)."""
+    errors = shape_errors(value, schema, path)
+    if len(errors) == 1:
+        raise ValueError(errors[0])
+    if errors:
+        raise ValueError(f"{len(errors)} problems: " + " ".join(errors[:12]) + (" …" if len(errors) > 12 else ""))
 
 
 def check_draft(draft, sources):
+    """Raise ValueError listing every semantic problem at once (shape errors stop early)."""
     check_shape(draft, SCHEMA)
     known_sources = {s["id"] for s in sources}
-    ids = {}
+    ids, errors = {}, []
     for group, prefix in (("requirements", "REQ"), ("acceptance_tests", "TEST"),
                           ("work_items", "TASK"), ("timeline", "MILESTONE")):
         values = [item["id"] for item in draft[group]]
         if len(values) != len(set(values)) or any(not re.fullmatch(prefix + r"-[1-9][0-9]*", v) for v in values):
-            raise ValueError(f"Invalid or duplicate IDs in {group}.")
+            errors.append(f"Invalid or duplicate IDs in {group}: {values}; use unique {prefix}-N IDs.")
         ids[group] = set(values)
     for item in draft["current_behavior"] + draft["requirements"]:
         if not item["source_ids"] or not set(item["source_ids"]) <= known_sources:
-            raise ValueError("Missing or unknown source citation.")
+            errors.append(f"Missing or unknown source citation {item['source_ids']}; known: {sorted(known_sources)}.")
     for req in draft["requirements"]:
         if not req["test_ids"] or not set(req["test_ids"]) <= ids["acceptance_tests"]:
-            raise ValueError("Requirement references missing acceptance tests.")
-    seen = set()
-    for task in draft["work_items"]:
-        if not set(task["depends_on"]) <= seen:
-            raise ValueError("Task dependencies must refer to earlier tasks.")
-        seen.add(task["id"])
-    seen = set()
-    for milestone in draft["timeline"]:
-        if not set(milestone["depends_on"]) <= seen:
-            raise ValueError("Timeline dependencies must refer to earlier milestones.")
-        seen.add(milestone["id"])
+            errors.append(f"Requirement {req['id']} references missing acceptance tests {req['test_ids']}.")
+    for group, kind in (("work_items", "Task dependencies must refer to earlier tasks"),
+                        ("timeline", "Timeline dependencies must refer to earlier milestones")):
+        seen = set()
+        for item in draft[group]:
+            if not set(item["depends_on"]) <= seen:
+                errors.append(f"{kind}: {item['id']} depends_on {item['depends_on']}, "
+                              f"but only {sorted(seen)} come before it.")
+            seen.add(item["id"])
     if draft["requirements"] and not draft["timeline"]:
-        raise ValueError("A specification with requirements must include a timeline.")
+        errors.append("A specification with requirements must include a timeline.")
     if not draft["requirements"] and not draft["unresolved_questions"]:
-        raise ValueError("An empty specification must explain what is unresolved.")
+        errors.append("An empty specification must explain what is unresolved.")
+    if errors:
+        raise ValueError(" ".join(errors) if len(errors) == 1 else
+                         f"{len(errors)} problems: " + " | ".join(errors))
 
 
 def demo_draft(payload):

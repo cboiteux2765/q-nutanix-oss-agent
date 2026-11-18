@@ -24,6 +24,7 @@ from .evolve.service import ExperimentService
 from .evolve.tasks import task_python, replay_dir
 from .providers import ModelProvider, ProviderError
 from .runtime import Runtime
+from . import speclab
 from .projects import project_view
 from .store import Store
 
@@ -209,7 +210,33 @@ RunRecord = Annotated[dict, Depends(_run)]
 AgentRecord = Annotated[dict, Depends(_agent)]
 
 
-def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -> FastAPI:
+def default_repo() -> Path | None:
+    """Repository to open when no project exists yet: EVO_DEFAULT_REPO, else this checkout.
+
+    Set EVO_DEFAULT_REPO to an empty value to always start with the connect-a-repository step.
+    """
+    value = os.getenv("EVO_DEFAULT_REPO")
+    if value is not None:
+        return Path(value).expanduser() if value.strip() else None
+    root = Path(__file__).resolve().parents[2]
+    return root if (root / ".git").exists() else None
+
+
+def _ensure_default_project(store: Store, path: Path | None) -> None:
+    """Register `path` as the first project, the same way POST /api/projects would."""
+    if path is None or store.list("projects"):
+        return
+    try:
+        path = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return
+    if path.is_dir():
+        store.put("projects", uuid4().hex, {"name": path.name, "path": str(path),
+                                            "description": "Default repository"})
+
+
+def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
+               default_project: Path | None = None) -> FastAPI:
     data_dir = data_dir or Path(os.getenv("EVO_DATA_DIR") or ".evo")
     frontend_dir = (frontend_dir or Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
 
@@ -218,6 +245,7 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
         store = Store(data_dir)
         try:
             _recover_interrupted(store)
+            _ensure_default_project(store, default_project)
             runtime = Runtime(store)
             runtime.reconcile_reservations()  # in-flight requests from a previous process
             app.state.store = store
@@ -228,9 +256,12 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
             app.state.evolution = EvolutionService(store, runtime)
             app.state.experiments = ExperimentService(store, runtime)
             app.state.experiments.recover()
+            app.state.speclab = speclab.SpecLabService(store, data_dir)
+            app.state.speclab.recover()
             try:
                 yield
             finally:
+                await app.state.speclab.close()
                 await app.state.experiments.close()
                 await app.state.runtime.close()
         finally:
@@ -559,6 +590,9 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
     async def read_artifact(artifact_id: str):
         return app.state.artifacts.read(artifact_id)
 
+    # Product Spec Agent toolchain (Spec Lab); must precede the frontend catch-all.
+    app.include_router(speclab.router(ProjectRecord))
+
     @app.get("/{path:path}", include_in_schema=False)
     async def frontend(path: str):
         if path == "api" or path.startswith("api/"):
@@ -578,4 +612,4 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None) -
     return app
 
 
-app = create_app()
+app = create_app(default_project=default_repo())

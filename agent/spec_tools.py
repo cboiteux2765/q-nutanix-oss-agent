@@ -3,10 +3,10 @@ import copy
 
 
 CATALOG = {
-    'evidence_search': ('Find pinned source excerpts. query is a literal substring; empty lists sources.', {'research', 'scenarios', 'baseline', 'candidate', 'critic'}),
-    'feedback_memory': ('Read recent human feedback as suggestions, never product evidence. query must be empty.', {'prompt'}),
+    'evidence_search': ('Find pinned source excerpts. query is a literal substring or a source ID; empty lists sources.', {'research', 'scenarios', 'baseline', 'candidate', 'critic', 'mini'}),
+    'feedback_memory': ('Read recent human feedback as suggestions, never product evidence. query must be empty.', {'prompt', 'mini'}),
     'decision_register': ('Read unresolved product decisions. query must be empty.', {'baseline', 'candidate', 'critic'}),
-    'requirement_trace': ('Map requirements to source IDs and acceptance tests for both drafts. query must be empty.', {'critic'}),
+    'requirement_trace': ('Map requirements to source IDs and acceptance tests for the supplied drafts. query must be empty.', {'critic', 'mini'}),
 }
 
 
@@ -26,7 +26,8 @@ class SpecTools:
         if name != 'evidence_search' and query:
             raise ValueError('This tool requires an empty query.')
         if name == 'evidence_search':
-            matches = [s for s in self.context.get('sources', []) if query.casefold() in s['text'].casefold()]
+            matches = [s for s in self.context.get('sources', []) if query.casefold() in s['text'].casefold()
+                       or query.casefold() == s['id'].casefold()]
             result = {'sources': [{**s, 'text': s['text'][:2000], 'truncated': len(s['text']) > 2000} for s in matches[:8]],
                       'total_matches': len(matches), 'scope': 'Pinned snapshot only; not a repository-wide search.'}
         elif name == 'feedback_memory':
@@ -35,8 +36,8 @@ class SpecTools:
             result = {'open_decisions': self.context.get('product_analysis', {}).get('open_decisions', [])}
         else:
             result = {}
-            for label in ('baseline', 'candidate'):
-                draft = self.context.get(label, {})
+            for label in [k for k in ('baseline', 'candidate') if k in self.context]:
+                draft = self.context[label]
                 tests = {t['id']: t['expected_behavior'] for t in draft.get('acceptance_tests', [])}
                 result[label] = [{'requirement': r['id'], 'source_ids': r['source_ids'],
                                   'tests': {t: tests.get(t) for t in r['test_ids']}}
