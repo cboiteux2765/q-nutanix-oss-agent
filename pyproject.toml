@@ -13,6 +13,7 @@ dependencies = [
     "httpx>=0.27",
     "mini-swe-agent==2.4.6",
     "pydantic>=2.10",
+    "pytest>=8,<10",
     "python-dotenv>=1.0",
     "uvicorn>=0.30",
 ]
