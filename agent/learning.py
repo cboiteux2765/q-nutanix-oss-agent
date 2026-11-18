@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import threading
+import time
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -133,7 +134,16 @@ class Workspace:
         # All mutations hold lock; atomic replacement survives interrupted writes.
         temp = self.root / 'workspace.tmp'
         temp.write_text(json.dumps(self.data, indent=2), encoding='utf-8')
-        temp.replace(self.root / 'workspace.json')
+        # On Windows the replace fails while another process (sync client, antivirus,
+        # indexer) briefly holds workspace.json; retry for up to about two seconds.
+        for attempt in range(20):
+            try:
+                temp.replace(self.root / 'workspace.json')
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(0.1)
 
     def snapshot(self):
         with self.lock:

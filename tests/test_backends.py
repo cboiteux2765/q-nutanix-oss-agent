@@ -23,3 +23,20 @@ def test_budgets_nest():
     with pytest.raises(BudgetExceeded, match="per-run"):
         run([{"role": "user", "content": "x"}])
     assert command.state["used"] == 100
+
+
+def test_workspace_save_retries_a_briefly_locked_file(tmp_path, monkeypatch):
+    from pathlib import Path
+    from agent.learning import Workspace
+    ws = Workspace(tmp_path)
+    real, calls = Path.replace, []
+
+    def flaky(self, target):
+        calls.append(target)
+        if len(calls) == 1:  # e.g. a sync client holding workspace.json
+            raise PermissionError("locked")
+        return real(self, target)
+    monkeypatch.setattr(Path, "replace", flaky)
+    ws.data["feedback"].append({"id": "f1"})
+    ws.save()
+    assert len(calls) == 2 and Workspace(tmp_path).data["feedback"] == [{"id": "f1"}]
