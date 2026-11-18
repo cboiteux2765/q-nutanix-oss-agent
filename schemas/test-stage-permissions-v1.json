@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "tools": ["test.target", "test.preflight", "test.verify", "test.manifest", "test.artifact"],
+  "authorization": {
+    "source": "host Runtime RPC closure -> stored agent/run/project -> operator RunBinding and ToolPolicy",
+    "roles": ["root orchestrator", "test", "qa"],
+    "model_may_supply_identity_approval_paths_or_commands": false,
+    "unconfigured_behavior": "deny",
+    "os_sandbox": false,
+    "host_verified_rpc_identity": true,
+    "cryptographic_per_request_identity": false
+  },
+  "read": ["operator-registered local Git repository and immutable snapshots", "same main run's approved specification and imported evidence"],
+  "write": ["operator-owned verification scratch, state, evidence and redacted evolution events", "same main run's host-imported artifacts and tool events"],
+  "execution": {
+    "command": "fixed pytest argv from approved TestProfile; no shell interpolation",
+    "untrusted_code_backend": "docker with digest-pinned prebuilt image, --pull=never, --network=none, limits and non-root uid",
+    "local_trusted": "operator-approved trusted fixtures only; network is not isolated",
+    "caps": "exact RunBinding budget bounded by ToolPolicy; default repair and model spend disabled"
+  },
+  "network": {
+    "test_tools": "no network client or remote repository discovery",
+    "docker_tests": "none",
+    "main_model_provider": "existing host-configured provider; separate from the test execution budget"
+  },
+  "forbidden": [
+    "model-created bindings or approvals", "cross-project/run evidence", "unregistered repository or stale pins",
+    "unallowlisted artifact paths", "arbitrary test commands", "subagent orchestration in Test tools",
+    "merge or deploy", "GitHub writes", "automatic human QA approval",
+    "bound Test/QA role calls to shell.run, repo.write, repo.apply_patch, repo.commit or github.create_draft",
+    "candidate patches to tests/, .github/, auth or security paths"
+  ],
+  "deployment_assumption": "EVO Python REPL and main host are trusted local code. OS isolation is mandatory if the model kernel itself is untrusted; this manifest is not an OS security boundary. One host process owns each verification state directory."
+}

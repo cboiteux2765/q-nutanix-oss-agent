@@ -56,7 +56,7 @@ def _first_line(text: str, limit: int = 220) -> str:
 
 
 class Runtime:
-    def __init__(self, store, *, evaluation: dict | None = None):
+    def __init__(self, store, *, evaluation: dict | None = None, test_stage=None):
         from .conversation import Responder
         from .tools import TOOL_MANIFEST, ToolBroker
 
@@ -69,6 +69,12 @@ class Runtime:
         self.knowledge = KnowledgeBase(store)
         self.skills = SkillLibrary(store)
         self.workflow = Workflow(store)
+        # Only the host installs approved Test-stage bindings, never REPL arguments.
+        if test_stage is None:
+            from .test_stage_bridge import configured_bridge
+            test_stage = configured_bridge()
+        self.test_stage = test_stage
+        self.workflow.test_stage = test_stage
         self.broker = ToolBroker(self)
         self.responder = Responder(self)
         self.manifest = TOOL_MANIFEST

@@ -46,6 +46,10 @@ EVO creates a separate working copy for each assignment. Its workflow keeps chan
 
 ## Development
 
+The main agent can call the bounded Test-stage tools through its Python REPL.
+See [Test-stage tools](docs/test-stage-tools.md) for the host-approved PR bindings,
+permission boundaries, evidence handoff and executable integration checks.
+
 ```powershell
 uv run evo --no-browser            # API server
 npm --prefix frontend run dev      # frontend with hot reload at http://127.0.0.1:5173

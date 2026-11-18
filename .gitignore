@@ -13,3 +13,4 @@ frontend/dist/
 frontend/*.tsbuildinfo
 .DS_Store
 .pytest-tmp/
+.pytest-tmp-*/
