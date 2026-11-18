@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "evo-speclab-demo",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "python",
+        "-c",
+        "import os,sys; os.environ['EVO_DATA_DIR']=r'C:/Users/ezrab/AppData/Local/Temp/claude/a3dc3eae6b60cc05/1c32ffee-a7d7-47c7-84e6-d86409719f4b/scratchpad/evo-fresh'; sys.argv=['evo','--no-browser','--port','8790']; from evo.__main__ import main; main()"
+      ],
+      "port": 8790
+    }
+  ]
+}

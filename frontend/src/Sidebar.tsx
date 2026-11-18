@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ClipboardList,
   Code2,
+  FileCheck2,
   FlaskConical,
   FolderGit2,
   Plus,
@@ -17,12 +18,13 @@ import {
 import { Logo, Status } from './components';
 import { ACTIVE_STATES, type Agent, type Project, type Settings } from './types';
 
-export type View = 'conversation' | 'memory' | 'skills' | 'evolution';
+export type View = 'conversation' | 'memory' | 'skills' | 'evolution' | 'spec';
 
 export const RESOURCE_TABS = [
   { id: 'memory' as View, label: 'Memory', icon: BookOpen },
   { id: 'skills' as View, label: 'Skills', icon: Sparkles },
   { id: 'evolution' as View, label: 'Evolution', icon: FlaskConical },
+  { id: 'spec' as View, label: 'Spec Lab', icon: FileCheck2 },
 ];
 
 const CORE_ROLES = [

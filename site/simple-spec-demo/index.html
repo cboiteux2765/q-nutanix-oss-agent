@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="A simple Product Spec Agent demo: issue to cited spec, plus governed self-evolution of the agent's harness.">
+<title>Spec Agent Lite</title>
+<style>
+:root{
+  --bg:#f7f7f5; --surface:#ffffff; --surface-2:#f0f0ec; --text:#1b1b18; --muted:#5f5f58;
+  --line:#e2e2dc; --accent:#2f5bd3; --accent-ink:#ffffff; --ok:#1f7a4d; --warn:#9a6200; --bad:#b3261e;
+  --ok-bg:#e6f4ec; --warn-bg:#fbf1dc; --bad-bg:#fbe7e5; --code:#f3f3ef;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141413; --surface:#1d1d1b; --surface-2:#262624; --text:#ecece6; --muted:#a3a39b;
+    --line:#34342f; --accent:#7f9cf5; --accent-ink:#10131c; --ok:#5fc48f; --warn:#e3b056; --bad:#f08a80;
+    --ok-bg:#16301f; --warn-bg:#33280f; --bad-bg:#3a1a17; --code:#232321;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141413; --surface:#1d1d1b; --surface-2:#262624; --text:#ecece6; --muted:#a3a39b;
+  --line:#34342f; --accent:#7f9cf5; --accent-ink:#10131c; --ok:#5fc48f; --warn:#e3b056; --bad:#f08a80;
+  --ok-bg:#16301f; --warn-bg:#33280f; --bad-bg:#3a1a17; --code:#232321;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+.brand{font-weight:650;letter-spacing:-.01em}
+.brand small{color:var(--muted);font-weight:400;margin-left:6px}
+.pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--warn-bg);color:var(--warn);white-space:nowrap}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:18px}
+nav.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:7px 14px;border-radius:8px;cursor:pointer;font:inherit;font-size:14px}
+nav.tabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+nav.tabs button:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px}
+h1{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
+h2{font-size:17px;margin:0 0 10px}
+h3{font-size:14px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+p{margin:0 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:720px){.grid2{grid-template-columns:1fr}}
+button.primary,button.secondary,button.ghost{font:inherit;font-size:14px;border-radius:8px;padding:8px 16px;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
+button.secondary{background:var(--surface);color:var(--text);border:1px solid var(--line)}
+button.ghost{background:none;border:none;color:var(--accent);padding:4px 6px}
+button:disabled{opacity:.45;cursor:not-allowed}
+textarea{width:100%;min-height:80px;font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);resize:vertical}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}
+.src{list-style:none;padding:0;margin:0}
+.src li{padding:8px 0;border-top:1px solid var(--line)}
+.src li:first-child{border-top:none}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:5px;background:var(--surface-2);color:var(--muted);margin-right:6px}
+.trace{list-style:none;padding:0;margin:0}
+.trace li{display:grid;grid-template-columns:22px 92px 1fr;gap:8px;padding:7px 0;border-top:1px solid var(--line);opacity:0;transform:translateY(4px);transition:.25s}
+.trace li.show{opacity:1;transform:none}
+.trace li:first-child{border-top:none}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--accent)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
+.role{font-size:12px;color:var(--muted);padding-top:2px}
+.check{display:flex;gap:8px;padding:5px 0}
+.check b{min-width:18px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:6px}
+.badge.ok{background:var(--ok-bg)}.badge.bad{background:var(--bad-bg)}.badge.warn{background:var(--warn-bg)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:7px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.04em;border-top:none}
+.table-wrap{overflow-x:auto}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow-x:auto;margin:0;white-space:pre-wrap;word-break:break-word}
+.lock{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:13px}
+.lesson{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:6px 0}
+.hidden{display:none}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;max-width:calc(100% - 32px)}
+#toast.show{opacity:1}
+svg.arch{width:100%;height:auto;display:block}
+svg.arch .box{fill:var(--surface-2);stroke:var(--line)}
+svg.arch .core{fill:var(--bad-bg);stroke:var(--bad)}
+svg.arch .gov{fill:var(--warn-bg);stroke:var(--warn)}
+svg.arch .evo{fill:var(--ok-bg);stroke:var(--ok)}
+svg.arch text{fill:var(--text);font:13px system-ui,sans-serif}
+svg.arch text.t{font-weight:650}
+svg.arch text.s{fill:var(--muted);font-size:11.5px}
+svg.arch .ar{stroke:var(--muted);stroke-width:1.4;fill:none;marker-end:url(#ah)}
+svg.arch #ah path{fill:var(--muted)}
+footer{max-width:980px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Spec Agent Lite <small>issue → cited spec → governed learning</small></div>
+  <span class="pill" title="No model is called. Outputs are a recorded fixture; your lessons are stored in this browser.">Recorded demo</span>
+</header>
+
+<main>
+  <nav class="tabs" aria-label="Steps">
+    <button data-tab="issue" class="on">1 · Issue</button>
+    <button data-tab="run">2 · Run</button>
+    <button data-tab="spec">3 · Spec</button>
+    <button data-tab="learn">4 · Learn</button>
+    <button data-tab="arch">Architecture</button>
+  </nav>
+
+  <!-- 1. ISSUE -->
+  <section id="tab-issue">
+    <div class="card">
+      <p class="small muted">acme/parser · issue #42 · pinned commit <code>8f31c2a</code></p>
+      <h1>parse("") returns [""] instead of []</h1>
+      <p>Callers treat an empty config value as "nothing configured", but the parser hands back a list with one empty string.</p>
+      <div class="row"><button class="primary" id="runBtn">Run spec agent</button><span class="small muted" id="lessonHint"></span></div>
+    </div>
+    <div class="card">
+      <h2>Evidence the agent may cite</h2>
+      <ul class="src" id="evidence"></ul>
+    </div>
+  </section>
+
+  <!-- 2. RUN -->
+  <section id="tab-run" class="hidden">
+    <div class="card">
+      <h2>Agent trace</h2>
+      <p class="small muted">RLM-style: the root agent holds the issue as a variable and spawns focused children, then collects their results. Read-only tools only.</p>
+      <ul class="trace" id="trace"></ul>
+    </div>
+  </section>
+
+  <!-- 3. SPEC -->
+  <section id="tab-spec" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Product spec: empty input returns an empty list</h2><span class="badge ok" id="specStatus">Validated</span></div>
+      <p class="small muted" id="specMeta"></p>
+      <h3>Requirements</h3>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Requirement</th><th>Evidence</th><th>Test</th></tr></thead><tbody id="reqs"></tbody></table></div>
+      <h3>Acceptance tests</h3>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Given / when / then</th></tr></thead><tbody id="tests"></tbody></table></div>
+      <h3>Open questions</h3>
+      <div id="questions"></div>
+      <h3>Validator checks</h3>
+      <div id="checks"></div>
+    </div>
+    <div class="card">
+      <h2>Was this spec right?</h2>
+      <p class="small muted">Your feedback is stored as an <b>unverified memory</b>. It doesn't change the agent until a lesson built from it passes the gates and you approve it.</p>
+      <textarea id="feedback" placeholder="e.g. Ask the product owner whether whitespace-only input like &quot;  &quot; should also count as empty."></textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="refineBtn">Save feedback &amp; refine</button><button class="ghost" id="sampleBtn">Use example</button><button class="ghost" id="badBtn">Try an unsafe one</button></div>
+    </div>
+  </section>
+
+  <!-- 4. LEARN -->
+  <section id="tab-learn" class="hidden">
+    <div class="card" id="proposalCard">
+      <h2>Proposed harness update</h2>
+      <div id="proposal"><p class="muted">No proposal yet. Run the agent, then leave feedback on the spec.</p></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Harness state <span class="small muted mono" id="hver"></span></h2>
+        <h3>Core (immutable)</h3>
+        <div class="lock">🔒 Base prompt, evidence rules, output schema, tool allowlist, validators. <span class="mono muted" id="coreHash"></span><br><span class="muted">Learning can't edit this. Changes go through a code PR.</span></div>
+        <h3>Active lessons</h3>
+        <div id="lessons"></div>
+        <h3>Memories (unverified feedback)</h3>
+        <div id="memories" class="small"></div>
+      </div>
+      <div class="card">
+        <h2>Ledger</h2>
+        <p class="small muted">Append-only log. Each entry chains to the previous entry's hash.</p>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Event</th><th></th></tr></thead><tbody id="ledger"></tbody></table></div>
+        <div class="row" style="margin-top:12px"><button class="secondary" id="resetBtn">Reset demo</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="tab-arch" class="hidden">
+    <div class="card">
+      <h2>Governed self-evolution</h2>
+      <p>The agent improves by changing a <b>versioned harness</b> around a fixed model: lessons, memories, skill cards and subagent specs. It never edits its own core. This follows Prime Agent's Continual Harness and <code>/refine</code>: small, evidence-backed updates with history and rollback. Here every update also has to pass explicit gates.</p>
+      <svg class="arch" viewBox="0 0 900 430" role="img" aria-label="Architecture: runs produce trajectories, a refiner proposes harness changes, gates evaluate them, humans approve, and the ledger records everything with rollback.">
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z"/></marker></defs>
+        <rect class="core" x="20" y="20" width="250" height="110" rx="10"/>
+        <text class="t" x="36" y="46">Immutable core</text>
+        <text class="s" x="36" y="68">base prompt · evidence rules</text>
+        <text class="s" x="36" y="86">output schema · tool allowlist</text>
+        <text class="s" x="36" y="104">validators · policy · budgets</text>
+        <text class="s" x="36" y="122">changed only by code PR</text>
+
+        <rect class="evo" x="20" y="160" width="250" height="120" rx="10"/>
+        <text class="t" x="36" y="186">Evolvable harness (vN)</text>
+        <text class="s" x="36" y="208">lessons (supplemental prompts)</text>
+        <text class="s" x="36" y="226">memories (unverified feedback)</text>
+        <text class="s" x="36" y="244">skill cards (markdown, no code)</text>
+        <text class="s" x="36" y="262">subagent specs (role prompts)</text>
+
+        <rect class="box" x="330" y="90" width="220" height="110" rx="10"/>
+        <text class="t" x="346" y="116">Spec agent run</text>
+        <text class="s" x="346" y="138">root RLM spawns: research,</text>
+        <text class="s" x="346" y="156">writer, critic · read-only tools</text>
+        <text class="s" x="346" y="174">→ spec + trajectory + checks</text>
+
+        <rect class="box" x="620" y="20" width="260" height="100" rx="10"/>
+        <text class="t" x="636" y="46">Signals</text>
+        <text class="s" x="636" y="68">human feedback · validator failures</text>
+        <text class="s" x="636" y="86">approval/rejection of specs</text>
+        <text class="s" x="636" y="104">coding-agent outcome (later)</text>
+
+        <rect class="box" x="620" y="160" width="260" height="90" rx="10"/>
+        <text class="t" x="636" y="186">Refiner (proposer)</text>
+        <text class="s" x="636" y="208">one small diff per proposal,</text>
+        <text class="s" x="636" y="226">must cite run + feedback IDs</text>
+
+        <rect class="gov" x="330" y="290" width="550" height="120" rx="10"/>
+        <text class="t" x="346" y="316">Governance gates</text>
+        <text class="s" x="346" y="338">1 scope: target ∈ harness, never core   2 policy lint: no bypass / skip-evidence rules</text>
+        <text class="s" x="346" y="356">3 size + rate limits   4 frozen benchmark replay: no regressions vs current version</text>
+        <text class="s" x="346" y="374">5 risk-tiered approval: memory=auto · lesson/skill=human · subagent spec=2 humans</text>
+        <text class="s" x="346" y="392">6 canary/shadow N runs → promote → auto-rollback on drift · all in hash-chained ledger</text>
+
+        <path class="ar" d="M145 130 V158"/>
+        <path class="ar" d="M270 145 H328"/>
+        <path class="ar" d="M270 210 H328"/>
+        <path class="ar" d="M550 130 H618"/>
+        <path class="ar" d="M750 120 V158"/>
+        <path class="ar" d="M750 250 V288"/>
+        <path class="ar" d="M330 350 H145 V282"/>
+        <text class="s" x="160" y="342">promote vN+1</text>
+      </svg>
+    </div>
+
+    <div class="card">
+      <h2>Risk tiers</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Change</th><th>Example</th><th>Gate</th></tr></thead>
+        <tbody>
+          <tr><td>Memory</td><td>"Reviewer prefers asking the product owner about whitespace"</td><td>Auto-stored, marked unverified, expires after 20 runs, never treated as evidence</td></tr>
+          <tr><td>Lesson / skill card</td><td>"For input-handling issues, list whitespace and None as open questions"</td><td>Lint + benchmark replay with no regressions + 1 human approval</td></tr>
+          <tr><td>Subagent spec / tool use</td><td>New "compatibility checker" child role</td><td>Above + canary runs + 2 approvals</td></tr>
+          <tr><td>Core / weights</td><td>Base prompt, validators, tool allowlist, fine-tuning</td><td>Out of scope for self-evolution: code PR or a separate training pipeline (verifiers / prime-rl) with its own eval</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h2>What this demo does vs. the Python server</h2>
+      <p class="small">This page plays a recorded run and simulates the benchmark replay with fixed rules, so you can see how the gates behave. In <code>agent/learning.py</code> the comparison is real: baseline and candidate prompts run on the same evidence and a critic scores them. To make that governance meaningful, add a <b>frozen benchmark</b> of pinned evidence snapshots. Today's scenarios are regenerated each run, so scores can't be compared across runs.</p>
+    </div>
+  </section>
+</main>
+<footer>UCSB CMPSC 189A × Nutanix · Learning model adapted from PrimeIntellect-ai/prime-agent (MIT) · No model calls on this page</footer>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function hash(s){ let h = 2166136261; for (const c of s){ h ^= c.charCodeAt(0); h = Math.imul(h, 16777619);} return (h>>>0).toString(16).padStart(8,'0'); }
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2600); }
+
+const CORE = 'Write product specs only from supplied evidence. Cite a source ID for every repository claim. Map every requirement to an acceptance test. Record unresolved product decisions as open questions; never assume them.';
+const EVIDENCE = [
+  ['ISSUE','Reported behavior','parse("") returns [""], while callers expect an empty result.','issues/42'],
+  ['SRC-1','Current parser path','The parser returns text.split(",") with no empty-input branch.','parser.py:12-14'],
+  ['SRC-2','Existing tests','Tests cover comma-separated values but not the empty string.','tests/test_parser.py:8-31'],
+  ['SRC-3','Compatibility promise','Public return types stay stable across patch releases.','docs/compatibility.md:3-9'],
+  ['SRC-4','Downstream usage','Callers iterate the result and treat zero entries as "not configured".','service/config.py:44-51'],
+];
+const BENCH = [
+  ['B1','Empty input (#42)'], ['B2','Add --quiet CLI flag'], ['B3','Deprecate v1 endpoint'],
+  ['B4','Rate-limit config'], ['B5','Ambiguous request — must stay blocked'],
+];
+const FORBIDDEN = [/skip (the )?citation/i, /without (evidence|citation|tests?)/i, /ignore (the )?(evidence|validator|rules?)/i, /auto-?approve/i, /bypass/i, /no need to (ask|cite)/i];
+const ASSUMES = [/\bassume\b/i, /don'?t ask/i, /never ask/i, /just decide/i];
+
+// ---------- state (localStorage is a convenience only) ----------
+const fresh = () => ({ version:0, lessons:[], memories:[], ledger:[], proposal:null, ran:false, runs:0, snapshots:{0:[]} });
+let S = fresh();
+try { const raw = localStorage.getItem('spec-lite'); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e) {}
+function save(){ try { localStorage.setItem('spec-lite', JSON.stringify(S)); } catch(e) {} }
+function log(event){
+  const prev = S.ledger.length ? S.ledger[S.ledger.length-1].h : '00000000';
+  const e = { n:S.ledger.length+1, event, at:new Date().toISOString(), prev };
+  e.h = hash(prev + e.event + e.at);
+  S.ledger.push(e);
+}
+
+// ---------- tabs ----------
+function show(tab){
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
+  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-'+tab));
+  if (tab==='learn') renderLearn();
+}
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => show(b.dataset.tab));
+
+// ---------- issue ----------
+$('#evidence').innerHTML = EVIDENCE.map(([id,t,x,ref]) => `<li><span class="tag">${id}</span><b>${esc(t)}</b> <span class="small muted mono">${esc(ref)}</span><br><span class="small">${esc(x)}</span></li>`).join('');
+function renderHint(){ $('#lessonHint').textContent = S.lessons.length ? `Harness v${S.version}: ${S.lessons.length} approved lesson(s) will be applied.` : 'Harness v0: core prompt only.'; }
+
+// ---------- run ----------
+function traceSteps(){
+  const L = S.lessons;
+  return [
+    ['root','', `Loaded harness v${S.version} (core ${hash(CORE)}${L.length?` + ${L.map(l=>l.id).join(', ')}`:''}).`],
+    ['root','', 'issue = load_issue("acme/parser#42"); pinned commit 8f31c2a.'],
+    ['research','', 'spawn("research") → evidence_search("parse empty") → 5 sources.'],
+    ['research','ok', 'Brief: user = parser caller; outcome = no entries for empty input; risk = low.'],
+    ['writer','', `spawn("writer") with brief${L.length?' + approved lessons':''}.`],
+    ['writer','', 'Draft: 3 requirements, 3 acceptance tests' + (whitespaceLesson()?', 1 open question (from lesson).':'.')],
+    ['critic','warn', 'spawn("critic") → requirement_trace: REQ-2 linked to TEST-9, which doesn\'t exist.'],
+    ['writer','ok', 'Targeted repair: re-linked REQ-2 → TEST-2.'],
+    ['root','ok', 'Validators pass. Spec + trajectory saved for refinement.'],
+  ];
+}
+function whitespaceLesson(){ return S.lessons.some(l => /whitespace|blank|spaces?/i.test(l.text)); }
+
+$('#runBtn').onclick = async () => {
+  $('#runBtn').disabled = true; show('run');
+  const ul = $('#trace'); ul.innerHTML = '';
+  for (const [role,cls,msg] of traceSteps()){
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="dot ${cls}"></span><span class="role">${role}</span><span>${esc(msg)}</span>`;
+    ul.appendChild(li); await sleep(40); li.classList.add('show'); await sleep(380);
+  }
+  S.ran = true; S.runs++; log(`Run #${S.runs} on harness v${S.version}`); save();
+  renderSpec(); await sleep(500); show('spec'); $('#runBtn').disabled = false;
+};
+
+// ---------- spec ----------
+function renderSpec(){
+  const reqs = [
+    ['REQ-1','parse("") returns [] (an empty list).','ISSUE, SRC-1','TEST-1'],
+    ['REQ-2','Non-empty input keeps today\'s comma-splitting behavior.','SRC-2','TEST-2'],
+    ['REQ-3','The return type stays list[str].','SRC-3, SRC-4','TEST-3'],
+  ];
+  const tests = [
+    ['TEST-1','Given "" → when parse() → then result == []'],
+    ['TEST-2','Given "a,b" → when parse() → then result == ["a","b"]'],
+    ['TEST-3','Given any input → when parse() → then result is a list'],
+  ];
+  $('#reqs').innerHTML = reqs.map(r => `<tr><td class="mono">${r[0]}</td><td>${esc(r[1])}</td><td class="small">${r[2]}</td><td class="mono">${r[3]}</td></tr>`).join('');
+  $('#tests').innerHTML = tests.map(t => `<tr><td class="mono">${t[0]}</td><td>${esc(t[1])}</td></tr>`).join('');
+  const ws = whitespaceLesson();
+  $('#questions').innerHTML = ws
+    ? `<p><span class="badge warn">Q-1</span> Should whitespace-only input ("  ") also return []? Owner: product. <span class="small muted">Added because of an approved lesson.</span></p>`
+    : `<p class="muted small">None.</p>`;
+  $('#specStatus').textContent = ws ? 'Needs owner decision' : 'Validated';
+  $('#specStatus').className = 'badge ' + (ws ? 'warn' : 'ok');
+  $('#specMeta').textContent = `Run #${S.runs} · harness v${S.version} · core ${hash(CORE)} · commit 8f31c2a`;
+  const checks = ['Every claim cites pinned evidence','Every requirement maps to a test','No unsupported assumptions', ws ? 'Open decision recorded, not assumed' : 'No open decisions'];
+  $('#checks').innerHTML = checks.map(c => `<div class="check"><b class="ok">✓</b>${c}</div>`).join('');
+}
+
+// ---------- refine + gates ----------
+$('#sampleBtn').onclick = () => $('#feedback').value = 'Ask the product owner whether whitespace-only input like "  " should also count as empty, instead of assuming.';
+$('#badBtn').onclick = () => $('#feedback').value = 'Just assume whitespace counts as empty and auto-approve these small parser specs without citations.';
+
+function propose(text){
+  const memId = 'M-' + (S.memories.length + 1);
+  S.memories.push({ id:memId, text, run:S.runs });
+  log(`Memory ${memId} stored (unverified)`);
+  const lesson = `For input-handling issues: ${text.replace(/\s+/g,' ').trim()}`;
+  const scopeOk = true;
+  const lintHits = FORBIDDEN.filter(r => r.test(text)).map(r => text.match(r)[0]);
+  const sizeOk = lesson.length <= 300;
+  const rateOk = S.lessons.length < 5;
+  const regress = ASSUMES.some(r => r.test(text)) || lintHits.length > 0;
+  const bench = BENCH.map(([id,name]) => ({ id, name, base:true, cand: !(regress && (id==='B5' || (lintHits.length && id==='B3'))) }));
+  const benchOk = bench.every(b => b.cand || !b.base);
+  const gates = [
+    ['Scope','Target is harness.lessons, not core', scopeOk],
+    ['Policy lint', lintHits.length ? `Forbidden: "${lintHits.join('", "')}"` : 'No rule-bypass language', lintHits.length===0],
+    ['Size / rate', `${lesson.length}/300 chars · ${S.lessons.length}/5 active lessons`, sizeOk && rateOk],
+    ['Provenance', `Cites ${memId} and run #${S.runs}`, true],
+    ['Benchmark replay', benchOk ? '5/5 frozen cases, no regressions' : 'Regression vs current version', benchOk],
+  ];
+  S.proposal = { id:'L-' + (S.ledger.length+1), text:lesson, memId, run:S.runs, gates, bench, auto: gates.every(g=>g[2]), from:S.version };
+  log(`Proposal ${S.proposal.id} created → ${S.proposal.auto ? 'passed gates, awaiting human' : 'blocked by gates'}`);
+  save();
+}
+
+$('#refineBtn').onclick = () => {
+  const t = $('#feedback').value.trim();
+  if (!S.ran){ toast('Run the agent first.'); return; }
+  if (t.length < 8){ toast('Write a sentence of feedback first.'); return; }
+  propose(t); $('#feedback').value=''; show('learn');
+};
+
+function renderProposal(){
+  const p = S.proposal, el = $('#proposal');
+  if (!p){ el.innerHTML = '<p class="muted">No proposal yet. Run the agent, then leave feedback on the spec.</p>'; return; }
+  el.innerHTML = `
+    <p class="small muted">${p.id} · from ${p.memId} · run #${p.run} · diff against harness v${p.from}</p>
+    <pre>+ lessons/${p.id}: ${esc(p.text)}</pre>
+    <h3>Gates</h3>
+    ${p.gates.map(([n,d,ok]) => `<div class="check"><b class="${ok?'ok':'bad'}">${ok?'✓':'✗'}</b><span><b>${n}</b> <span class="small muted">— ${esc(d)}</span></span></div>`).join('')}
+    <details style="margin-top:6px"><summary class="small">Benchmark replay (simulated in this demo)</summary>
+      <div class="table-wrap"><table><thead><tr><th>Case</th><th>Current</th><th>Candidate</th></tr></thead><tbody>
+      ${p.bench.map(b => `<tr><td>${b.id} · ${esc(b.name)}</td><td class="ok">pass</td><td class="${b.cand?'ok':'bad'}">${b.cand?'pass':'regressed'}</td></tr>`).join('')}
+      </tbody></table></div></details>
+    <div class="check" style="margin-top:8px"><b class="warn">●</b><span><b>Human approval</b> <span class="small muted">— lessons are tier 2: one reviewer must approve</span></span></div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="approveBtn" ${p.auto?'':'disabled'} title="${p.auto?'':'Automated gates must pass before a human can approve'}">Approve &amp; promote</button>
+      <button class="secondary" id="rejectBtn">Reject</button>
+    </div>`;
+  $('#approveBtn').onclick = () => {
+    S.snapshots[S.version] = S.lessons.slice();
+    S.lessons.push({ id:p.id, text:p.text, mem:p.memId });
+    S.version++; S.snapshots[S.version] = S.lessons.slice();
+    log(`${p.id} approved → harness v${S.version}`);
+    S.proposal = null; save(); renderLearn(); renderHint();
+    toast(`Promoted to harness v${S.version}. Run the agent again to see the effect.`);
+  };
+  $('#rejectBtn').onclick = () => { log(`${p.id} rejected`); S.proposal=null; save(); renderLearn(); };
+}
+
+function renderLearn(){
+  renderProposal();
+  $('#hver').textContent = 'v' + S.version;
+  $('#coreHash').textContent = 'sha ' + hash(CORE);
+  $('#lessons').innerHTML = S.lessons.length
+    ? S.lessons.map(l => `<div class="lesson small"><span class="tag">${l.id}</span>${esc(l.text)}<br><span class="muted">from ${l.mem}</span></div>`).join('')
+    : '<p class="small muted">None yet.</p>';
+  $('#memories').innerHTML = S.memories.length
+    ? S.memories.slice(-5).reverse().map(m => `<div><span class="tag">${m.id}</span>${esc(m.text)}</div>`).join('')
+    : '<p class="muted">None yet.</p>';
+  const versions = Object.keys(S.snapshots).map(Number).filter(v => v < S.version);
+  $('#ledger').innerHTML = S.ledger.slice().reverse().map(e => {
+    const m = e.event.match(/→ harness v(\d+)$/);
+    const v = m ? Number(m[1]) - 1 : null;
+    const rb = (m && versions.includes(v)) ? `<button class="ghost small" data-rb="${v}">Restore v${v}</button>` : '';
+    return `<tr><td class="mono small">${e.n}</td><td class="small">${esc(e.event)}<br><span class="mono muted">${e.h} ← ${e.prev}</span></td><td>${rb}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="muted small">Empty.</td></tr>';
+  document.querySelectorAll('[data-rb]').forEach(b => b.onclick = () => {
+    const v = Number(b.dataset.rb);
+    S.lessons = (S.snapshots[v] || []).slice(); S.version++; S.snapshots[S.version] = S.lessons.slice();
+    log(`Rollback to v${v} contents → harness v${S.version}`); save(); renderLearn(); renderHint();
+    toast(`Restored v${v} contents as v${S.version}. History is kept.`);
+  });
+}
+
+$('#resetBtn').onclick = () => { S = fresh(); save(); $('#trace').innerHTML=''; renderLearn(); renderHint(); show('issue'); toast('Demo reset.'); };
+
+renderHint();
+if (S.ran) renderSpec();
+</script>
+</body>
+</html>

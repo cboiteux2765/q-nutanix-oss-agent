@@ -1,0 +1,136 @@
+[
+  {
+    "problem": "Empty input needs a defined result.",
+    "scope": [
+      "Empty input only."
+    ],
+    "non_goals": [
+      "Other parser behavior."
+    ],
+    "assumptions": [
+      "Synthetic example, not repository evidence."
+    ],
+    "current_behavior": [
+      {
+        "claim": "An issue report was supplied; its claims are unverified.",
+        "source_ids": [
+          "ISSUE"
+        ]
+      }
+    ],
+    "proposed_change": "Return [] when the input is empty.",
+    "api_changes": "No signature changes.",
+    "alternatives": [
+      "Raise an error; excluded by the synthetic issue."
+    ],
+    "risks": [
+      "Real parser behavior has not been examined."
+    ],
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "description": "Empty input returns [].",
+        "source_ids": [
+          "ISSUE"
+        ],
+        "test_ids": [
+          "TEST-999"
+        ]
+      }
+    ],
+    "acceptance_tests": [
+      {
+        "id": "TEST-1",
+        "expected_behavior": "Calling parse('') returns []."
+      }
+    ],
+    "work_items": [
+      {
+        "id": "TASK-1",
+        "objective": "Add the empty-input case and test.",
+        "depends_on": []
+      }
+    ],
+    "timeline": [
+      {
+        "id": "MILESTONE-1",
+        "phase": "Implementation and verification",
+        "deliverable": "Empty-input behavior and its regression test.",
+        "exit_criteria": "TEST-1 passes and nonempty-input behavior remains green.",
+        "depends_on": []
+      }
+    ],
+    "constraints": [
+      "Preserve behavior for nonempty input."
+    ],
+    "rollout_rollback": "For the hypothetical implementation, run tests; revert the change if needed.",
+    "unresolved_questions": []
+  },
+  {
+    "problem": "Empty input needs a defined result.",
+    "scope": [
+      "Empty input only."
+    ],
+    "non_goals": [
+      "Other parser behavior."
+    ],
+    "assumptions": [
+      "Synthetic example, not repository evidence."
+    ],
+    "current_behavior": [
+      {
+        "claim": "An issue report was supplied; its claims are unverified.",
+        "source_ids": [
+          "ISSUE"
+        ]
+      }
+    ],
+    "proposed_change": "Return [] when the input is empty.",
+    "api_changes": "No signature changes.",
+    "alternatives": [
+      "Raise an error; excluded by the synthetic issue."
+    ],
+    "risks": [
+      "Real parser behavior has not been examined."
+    ],
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "description": "Empty input returns [].",
+        "source_ids": [
+          "ISSUE"
+        ],
+        "test_ids": [
+          "TEST-1"
+        ]
+      }
+    ],
+    "acceptance_tests": [
+      {
+        "id": "TEST-1",
+        "expected_behavior": "Calling parse('') returns []."
+      }
+    ],
+    "work_items": [
+      {
+        "id": "TASK-1",
+        "objective": "Add the empty-input case and test.",
+        "depends_on": []
+      }
+    ],
+    "timeline": [
+      {
+        "id": "MILESTONE-1",
+        "phase": "Implementation and verification",
+        "deliverable": "Empty-input behavior and its regression test.",
+        "exit_criteria": "TEST-1 passes and nonempty-input behavior remains green.",
+        "depends_on": []
+      }
+    ],
+    "constraints": [
+      "Preserve behavior for nonempty input."
+    ],
+    "rollout_rollback": "For the hypothetical implementation, run tests; revert the change if needed.",
+    "unresolved_questions": []
+  }
+]

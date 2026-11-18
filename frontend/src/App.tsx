@@ -24,6 +24,7 @@ import SettingsModal from './SettingsModal';
 import ActivityPanel from './ActivityPanel';
 import { MemoryView, SkillsView } from './Knowledge';
 import { EvolutionView } from './Evolution';
+import { SpecLabView } from './SpecLab';
 import Onboarding from './Onboarding';
 import MainAgentModal from './MainAgentModal';
 import Sidebar, { RESOURCE_TABS, type View } from './Sidebar';
@@ -441,6 +442,8 @@ export default function App() {
     <MemoryView project={project} notify={notify} />
   ) : view === 'skills' ? (
     <SkillsView project={project} notify={notify} />
+  ) : view === 'spec' ? (
+    <SpecLabView project={project} notify={notify} />
   ) : (
     <EvolutionView project={project} notify={notify} />
   );

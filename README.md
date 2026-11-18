@@ -57,3 +57,38 @@ uv run pytest                      # tests (scripted model, no API calls)
 ```
 
 Python backend in `src/evo`, React frontend in `frontend/src`, tests in `tests/`. Local data is stored in `.evo/`; set `EVO_DATA_DIR` to change the location. The earlier prototype is on the [`mihir-coding` branch](https://github.com/cboiteux2765/q-nutanix-oss-agent/tree/mihir-coding/coding-agent).
+
+## Product Spec Agent and Spec Lab
+
+The Product Spec Agent turns one GitHub issue snapshot into a cited product specification
+and a JSON handoff for the coding agent. It does not launch a coding agent or create PRs.
+In EVO, open **Spec Lab** in the sidebar. For a step-by-step walkthrough, see the
+[demo guide](docs/DEMO.md).
+
+- **Run a spec** with either harness: a [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent)
+  loop (`agent/mini_product.py`) or the Prime-RLM-style specialist orchestrator (`agent/learning.py`).
+  Inspect tool calls, the trajectory and the rendered spec.
+- **Compare harnesses** on a frozen benchmark of pinned snapshots (`evals/cases.py`), graded by
+  rubrics, not a model judge. See [the harness comparison](docs/HARNESS_COMPARISON.md).
+- **Governed evolution**: propose prompt revisions, give feedback, replay the frozen benchmark,
+  and promote or roll back behind deterministic gates and a hash-chained ledger. See
+  [governed self-evolution](docs/GOVERNED_EVOLUTION.md).
+
+Models: **Recorded** (replays real `claude-v5.5-haiku` replies from UCSB AI Commons on every
+synthetic case, all three parts, no model needed), **UCSB AI Commons** (live, key in `.env`), **Scripted fixture** (smoke test), a local **Ollama** model, or the model
+configured in EVO **Settings**. Re-record with `uv run python -m evals.record --backend aicommons --model claude-v5.5-haiku`. From the command line:
+
+```powershell
+uv run python -m agent.mini_product examples/learning-evidence.json --allowed-repo example/review-fixture --model qwen2.5:3b
+uv run python -m evals.run_evals --model qwen2.5:3b      # all harnesses x frozen benchmark
+```
+
+Earlier prototype material: [PROTOTYPE.md](docs/PROTOTYPE.md), [local demo](docs/LOCAL_DEMO.md),
+[handoff](docs/HANDOFF.md), [product discovery](docs/PRODUCT_DESIGN.md) and the
+[learning workflow](docs/LEARNING_WORKFLOW.md).
+
+**Review policy.** Product-mode runs auto-clear a live spec for handoff only when
+structural checks pass, product context and quoted evidence are present, assessed risk
+is low, and there are no assumptions or unresolved decisions; otherwise they report
+NEEDS_REVIEW with reasons. Replay runs never auto-clear. AUTO_CLEARED is not human
+APPROVED and does not establish factual correctness. Hash checks invalidate changed artifacts.

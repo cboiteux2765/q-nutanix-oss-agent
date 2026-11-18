@@ -1,0 +1,25 @@
+{
+  "run_id": "synthetic-example",
+  "correlation_id": "synthetic-example",
+  "status": "EVIDENCE_COLLECTED",
+  "input": {
+    "repo": "example/review-fixture",
+    "issue_number": 1,
+    "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "Synthetic example: return an empty list for empty input",
+    "issue_url": "https://example.invalid/issues/1",
+    "body": "parse('') should return []. Preserve behavior for nonempty input.",
+    "comments": []
+  },
+  "evidence": [
+    {
+      "id": "SRC-1",
+      "path": "parser.py",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "start_line": 1,
+      "end_line": 2,
+      "url": "https://example.invalid/blob/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/parser.py#L1-L2",
+      "text": "def parse(text):\n    return text.split(\",\")"
+    }
+  ]
+}
