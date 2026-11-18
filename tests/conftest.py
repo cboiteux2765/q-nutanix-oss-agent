@@ -97,10 +97,3 @@ async def settle(runtime, timeout: float = 30) -> None:
         while runtime.tasks:
             await asyncio.gather(*list(runtime.tasks.values()), return_exceptions=True)
             await asyncio.sleep(0)
-
-
-def transcript(store: Store, agent_id: str) -> list[dict]:
-    """An agent's model-visible message history, wherever the store keeps it."""
-    if hasattr(store, "messages"):
-        return store.messages(agent_id)
-    return store.get("agents", agent_id)["messages"]

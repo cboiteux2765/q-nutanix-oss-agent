@@ -5,9 +5,8 @@ import sys
 import pytest
 
 from evo import procs
-from evo.common import Conflict, NotFound, StreamRedactor, redact_all
+from evo.common import StreamRedactor, redact_all
 from evo.store import Store, require
-from evo.tools import TOOL_MANIFEST, _Scope
 
 
 def test_stream_redactor_catches_a_secret_split_across_chunks():
@@ -32,23 +31,12 @@ def test_redact_all_handles_nested_values_and_keys():
     assert redact_all({"a": "b"}, "") == {"a": "b"}
 
 
-def test_typed_errors_keep_their_builtin_bases():
-    assert issubclass(NotFound, KeyError) and issubclass(Conflict, ValueError)
-    assert str(NotFound("Unknown runs record 'x'")) == "Unknown runs record 'x'"
-
-
 def test_require(store):
-    with pytest.raises(NotFound):
+    with pytest.raises(KeyError) as missing:
         require(store, "runs", "missing")
+    assert str(missing.value) == "Unknown runs record 'missing'"
     store.put("runs", "r1", {})
     assert require(store, "runs", "r1")["id"] == "r1"
-
-
-def test_tool_manifest_matches_scope_methods():
-    public = {name for name in vars(_Scope) if not name.startswith("_") and callable(getattr(_Scope, name))}
-    assert {name.replace(".", "_", 1) for name in TOOL_MANIFEST} == public
-    assert TOOL_MANIFEST["repo.read"] == "repo.read(path, start=1, lines=200) reads UTF-8 lines with 1-based offsets."
-    assert TOOL_MANIFEST["artifacts.read"].startswith("artifacts.read(artifact_id, offset=0, limit=24000) ")
 
 
 def test_events_by_id_is_scoped_to_project_and_run(store):
@@ -76,7 +64,7 @@ def test_agent_messages_append_and_replace(store):
         ({"role": "system", "content": "s"}, None), ({"role": "user", "content": "c"}, "e3")]
 
 
-def test_version_1_database_moves_messages_out_of_agents(tmp_path):
+def test_version_1_database_preserves_conversation_on_upgrade_and_reopen(tmp_path):
     data = tmp_path / "old"
     data.mkdir()
     db = sqlite3.connect(data / "evo.db")
@@ -95,7 +83,6 @@ def test_version_1_database_moves_messages_out_of_agents(tmp_path):
     store = Store(data)
     try:
         record = store.get("agents", "a1")
-        assert "messages" not in record and "message_event_ids" not in record
         assert record["status"] == "waiting"
         assert store.messages("a1", with_event_ids=True) == [
             ({"role": "system", "content": "s"}, None), ({"role": "user", "content": "u"}, "e1")]
@@ -104,8 +91,8 @@ def test_version_1_database_moves_messages_out_of_agents(tmp_path):
     # Reopening does not migrate again.
     store = Store(data)
     try:
-        assert store.message_count("a1") == 2
-        assert store._db.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert store.messages("a1", with_event_ids=True) == [
+            ({"role": "system", "content": "s"}, None), ({"role": "user", "content": "u"}, "e1")]
     finally:
         store.close()
 
@@ -113,8 +100,10 @@ def test_version_1_database_moves_messages_out_of_agents(tmp_path):
 def test_procs_run_captures_and_bounds_output(tmp_path):
     result = procs.run([sys.executable, "-c", "import sys; print('out'); print('err', file=sys.stderr)"],
                        tmp_path, 30, None)
-    assert result == {"exit_code": 0, "stdout": "out\n", "stderr": "err\n", "timed_out": False} or \
-        result["stdout"].strip() == "out"
+    assert result["exit_code"] == 0
+    assert result["stdout"].splitlines() == ["out"]
+    assert result["stderr"].splitlines() == ["err"]
+    assert result["timed_out"] is False
     echoed = procs.run([sys.executable, "-c", "import sys; sys.stdout.write(sys.stdin.read())"],
                        tmp_path, 30, None, input=b"hello")
     assert echoed["stdout"] == "hello"

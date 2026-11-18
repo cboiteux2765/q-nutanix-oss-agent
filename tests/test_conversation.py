@@ -9,7 +9,7 @@ from evo import runtime as runtime_module
 from evo.providers import ModelResponse, ToolCall
 from evo.runtime import Runtime
 
-from .conftest import settle, transcript
+from .conftest import settle
 
 RESPONDER_MARK = "answering the user in the conversation while your own working process"
 
@@ -125,6 +125,9 @@ def test_question_while_waiting_on_a_subagent(store, project, scripted):
     ]
     helpers = [a for a in store.list("agents", run_id=run_id) if a["role"] == "helper"]
     assert len(helpers) == 1 and helpers[0]["status"] == "completed"
+    assert helpers[0]["parent_id"] == run["root_agent_id"]
+    assert any(m["role"] == "user" and "Found it in app.py." in (m.get("content") or "")
+               for m in store.messages(run["root_agent_id"]))
     events = store.events(run_id, limit=2000)
     delivered = [e for e in events if e["kind"] == "message.delivered"]
     question = next(e for e in events if e["kind"] == "message" and e["data"].get("text") == "How is it going?")
@@ -225,7 +228,7 @@ def test_steering_reaches_the_coordinator_and_is_not_marked_applied(store, proje
     assert texts.index("Received; I've passed that to the coordinator.") < texts.index(
         "Applied: Code now uses approach B.")
     code = next(a for a in store.list("agents", run_id=run_id) if a["role"] == "code")
-    assert any("Use approach B" in m.get("content", "") for m in transcript(store, code["id"]))
+    assert any("Use approach B" in m.get("content", "") for m in store.messages(code["id"]))
 
 
 def test_only_the_main_agent_talks_to_the_user(store, project, scripted):
@@ -252,7 +255,7 @@ def test_only_the_main_agent_talks_to_the_user(store, project, scripted):
     run_id = asyncio.run(scenario())
     assert "hi from a worker" not in [m[1] for m in visible(store, project["id"])]
     helper = next(a for a in store.list("agents", run_id=run_id) if a["role"] == "helper")
-    assert "Only the main agent talks to the user" in json.dumps(transcript(store, helper["id"]))
+    assert "Only the main agent talks to the user" in json.dumps(store.messages(helper["id"]))
 
 
 def test_milestone_updates_are_grounded_batched_and_not_repeated(store, project, scripted):

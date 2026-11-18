@@ -55,7 +55,7 @@ def test_settings_round_trip(client):
     response = client.put("/api/settings", json={"max_steps": 12})
     assert response.status_code == 200
     assert response.json()["max_steps"] == 12
-    assert client.get("/api/settings").json()["api_key_configured"] in (True, False)
+    assert client.get("/api/settings").json()["max_steps"] == 12
 
 
 def test_run_detail(client, project):
@@ -90,7 +90,7 @@ def test_evolution_endpoints(client, project):
     assert saved["mode"] == "auto" and saved["limits"]["max_metric_calls"] == 4
     assert client.put(f"/api/projects/{project['id']}/evolution/settings",
                       json={"limits": {"max_metric_calls": 10_000}}).status_code == 400
-    # An experiment needs source runs; the old UI omitted them.
+    # An experiment needs source runs to supply reflection evidence.
     response = client.post(f"/api/projects/{project['id']}/experiments", json={"role": "code"})
     assert response.status_code == 400 and "source runs" in response.json()["detail"]
     assert client.post(f"/api/projects/{project['id']}/evolve", json={"role": "code"}).status_code == 400
