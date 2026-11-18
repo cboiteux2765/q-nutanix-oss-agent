@@ -128,6 +128,10 @@ class ToolBroker:
         denied = scope.run.get("tool_policy", {}).get("deny", [])
         if any(name == rule or (rule.endswith(".*") and name.startswith(rule[:-1])) for rule in denied):
             raise PermissionError(f"{name} is disabled in this run.")
+        bridge = self.runtime.test_stage
+        if (bridge and bridge.is_bound(scope.run_id) and scope.role in {"test", "qa"}
+                and name in {"shell.run", "repo.write", "repo.apply_patch", "repo.commit", "github.create_draft"}):
+            raise PermissionError("Bound verification roles must use approved Test-stage tools.")
         target = getattr(scope, name.replace(".", "_", 1))
         inspect.signature(target).bind(*args, **kwargs)
         if inspect.iscoroutinefunction(target):
@@ -532,6 +536,32 @@ class _Scope:
     def workflow_status(self) -> dict:
         """returns phase, commit, handoffs and findings."""
         return self.broker.workflow.status(self.run_id)
+
+    def test_target(self) -> dict:
+        """returns the host-approved pinned Test request for this run; fails if unconfigured."""
+        return self._test_stage().target(self)
+
+    def _test_stage(self):
+        bridge = self.broker.runtime.test_stage
+        if bridge is None:
+            raise PermissionError("Test-stage host binding is not configured.")
+        return bridge
+
+    def test_preflight(self, target: dict) -> dict:
+        """checks registered PR, specification, environment and test profile readiness."""
+        return self._test_stage().preflight(self, target)
+
+    async def test_verify(self, request: dict) -> dict:
+        """runs bounded approved verification and imports its hash-bound evidence into main artifacts."""
+        return await self._test_stage().verify(self, request)
+
+    def test_manifest(self, run_id: str) -> dict:
+        """reads the verified evidence manifest belonging to this main run."""
+        return self._test_stage().manifest(self, run_id)
+
+    def test_artifact(self, run_id: str, name: str) -> dict:
+        """reads an allowlisted, checksum-verified Test artifact from this main run."""
+        return self._test_stage().artifact(self, run_id, name)
 
     def workflow_handoff(self, target: str, summary: str, artifacts: list[str] | None = None,
                          commit: str | None = None, passed: bool | None = None) -> dict:

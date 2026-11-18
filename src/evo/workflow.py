@@ -55,6 +55,7 @@ class ArtifactStore:
 class Workflow:
     def __init__(self, store: Store):
         self.store = store
+        self.test_stage = None
 
     def status(self, run_id: str) -> dict:
         run = require(self.store, "runs", run_id)
@@ -156,6 +157,8 @@ class Workflow:
                     raise ValueError("Verification must pass and include a verification artifact.")
                 if current == "qa" and run.get("tested_commit") != commit:
                     raise ValueError("Test must pass on the same commit before QA can mark it ready.")
+                if self.test_stage and self.test_stage.is_bound(run["id"]):
+                    self.test_stage.validate_handoff(self.store, run, evidence, current)
             updates = {"phase": phase}
             if phase == "blocked":
                 updates["blocked_from"] = current

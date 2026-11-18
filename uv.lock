@@ -69,6 +69,7 @@ dependencies = [
     { name = "gepa" },
     { name = "httpx" },
     { name = "pydantic" },
+    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "uvicorn" },
 ]
@@ -84,6 +85,7 @@ requires-dist = [
     { name = "gepa", specifier = "==0.1.4" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.10" },
+    { name = "pytest", specifier = ">=8,<10" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
