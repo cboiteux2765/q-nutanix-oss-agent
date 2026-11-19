@@ -42,11 +42,14 @@ export function useRun(notify: (text: string, error?: boolean) => void) {
 
   /** Open a run. Resolves true once it is shown, false if it failed or was superseded. */
   const loadRun = useCallback(
-    async (id: string) => {
+    async (id: string, projectId?: string) => {
       const token = ++requestCounter.current;
       try {
-        const result = await api<RunDetail>(`/runs/${id}`);
+        const result = await api<RunDetail>(`/runs/${encodeURIComponent(id)}`);
         if (token !== requestCounter.current) return false;
+        if (projectId && result.run.project_id !== projectId) {
+          throw new Error('This run belongs to another project.');
+        }
         const sameRun = currentRun.current === id;
         currentRun.current = id;
         setDetail(result);

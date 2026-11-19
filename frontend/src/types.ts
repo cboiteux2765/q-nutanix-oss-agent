@@ -6,20 +6,92 @@ export type Project = {
   created_at?: string;
   main_agent: { id: string; name: string; instructions: string; model: string };
 };
-export type Conversation = { run_id: string | null; messages: Event[]; has_more: boolean };
+export type Conversation = {
+  run_id: string | null;
+  supervisor_run_id?: string | null;
+  messages: Event[];
+  has_more: boolean;
+};
+export type Usage = {
+  tokens?: number;
+  input?: number;
+  output?: number;
+  cached?: number;
+  cost_usd?: number | null;
+  unresolved?: number;
+  unresolved_tokens?: number;
+  unresolved_cost_usd?: number;
+};
 export type Run = {
   id: string;
   project_id: string;
   title: string;
   status: string;
-  phase?: string;
+  kind?: 'supervisor' | 'workflow';
+  phase?: string | null;
   root_agent_id?: string;
   branch?: string;
   workdir?: string;
   created_at: string;
   updated_at?: string;
-  token_usage?: { input?: number; output?: number; cached?: number };
+  queue_pending?: boolean;
+  token_usage?: Usage;
   error?: string;
+};
+export type Workflow = Run & {
+  agents?: Agent[];
+  agent_count?: number;
+  active_agent_count?: number;
+  usage?: Usage;
+};
+export type ActivitySettings = {
+  repository: string | null;
+  enabled: boolean;
+  paused: boolean;
+  mode: 'suggest' | 'local_auto';
+  last_poll_at?: string | null;
+  last_error?: string | null;
+  catching_up?: boolean;
+};
+export type RepoEvent = {
+  id: string;
+  kind: string;
+  title: string;
+  summary?: string;
+  url?: string;
+  created_at?: string;
+  occurred_at?: string;
+  actor?: string;
+  number?: number | null;
+  action?: string;
+};
+export type Suggestion = {
+  id: string;
+  title: string;
+  summary?: string;
+  source_urls?: string[];
+  event_ids?: string[];
+  events?: RepoEvent[];
+  status: string;
+  run_id?: string | null;
+};
+export type ProjectDashboard = {
+  event_cursor?: number;
+  workflows: Workflow[];
+  supervisor: Run | null;
+  settings: WorkflowLimits;
+  usage: Usage;
+  activity: {
+    settings: ActivitySettings;
+    events: RepoEvent[];
+    suggestions: Suggestion[];
+    counts: Record<string, number>;
+  };
+};
+export type WorkflowLimits = {
+  max_concurrent_workflows: number;
+  max_project_tokens: number | null;
+  max_project_cost_usd: number | null;
 };
 export type Agent = {
   id: string;

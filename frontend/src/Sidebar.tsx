@@ -8,6 +8,7 @@ import {
   FileCheck2,
   FlaskConical,
   FolderGit2,
+  LayoutDashboard,
   Plus,
   Settings2,
   ShieldCheck,
@@ -18,7 +19,7 @@ import {
 import { Logo, Status } from './components';
 import { ACTIVE_STATES, type Agent, type Project, type Settings } from './types';
 
-export type View = 'conversation' | 'memory' | 'skills' | 'evolution' | 'spec';
+export type View = 'workspace' | 'conversation' | 'memory' | 'skills' | 'evolution' | 'spec';
 
 export const RESOURCE_TABS = [
   { id: 'memory' as View, label: 'Memory', icon: BookOpen },
@@ -126,6 +127,18 @@ export default function Sidebar(props: Props) {
           </div>
         )}
       </div>
+      {!!project && (
+        <nav className="sidebar-nav workspace-navigation" aria-label="Workspace">
+          <button
+            className={view === 'workspace' ? 'active' : ''}
+            aria-current={view === 'workspace' ? 'page' : undefined}
+            onClick={() => props.onView('workspace')}
+          >
+            <LayoutDashboard size={16} />
+            <span>Dashboard</span>
+          </button>
+        </nav>
+      )}
       <div className="main-agent-nav">
         <button
           className={`main-agent-link ${props.mainSelected ? 'selected' : ''}`}
@@ -134,7 +147,7 @@ export default function Sidebar(props: Props) {
           <Logo small />
           <span>
             <strong>{props.mainName}</strong>
-            <small>Your main agent</small>
+            <small>Project conversation</small>
           </span>
           {active && <span className="live-dot" />}
         </button>
@@ -149,7 +162,10 @@ export default function Sidebar(props: Props) {
           </button>
         )}
       </div>
-      <div className="crew-label">Your team {active && <span>Working</span>}</div>
+      <div className="crew-label">
+        Your team{' '}
+        {crew.some((agent) => ACTIVE_STATES.includes(agent.status)) && <span>Working</span>}
+      </div>
       <nav className="agent-roster" aria-label="Agents">
         {roleSlots.map((slot) => {
           const members = crew.filter((a) => a.role === slot.role);

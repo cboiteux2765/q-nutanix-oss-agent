@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Square,
+  Workflow,
 } from 'lucide-react';
 import { MarkdownText, modelLabel, Status, timeLabel } from './components';
 import {
@@ -78,10 +79,32 @@ export function NewConversation({
   );
 }
 
-function phaseLabel(phase?: string) {
+function phaseLabel(phase?: string | null) {
   if (phase === 'ready') return 'Ready for review';
   if (phase === 'qa') return 'QA';
   return (phase || 'triage').replace(/_/g, ' ');
+}
+
+function WorkflowSource({
+  event,
+  onOpen,
+}: {
+  event: Event;
+  onOpen: (runId: string, agentId?: string) => void;
+}) {
+  const { source_run_id: runId, source_agent_id: agentId, source_title: title } = event.data;
+  if (typeof runId !== 'string') return null;
+  return (
+    <button
+      className="chat-workflow-source"
+      title={typeof title === 'string' ? title : 'Open workflow'}
+      onClick={() => onOpen(runId, typeof agentId === 'string' ? agentId : undefined)}
+    >
+      <Workflow size={13} />
+      <span>{typeof title === 'string' && title ? title : 'Open workflow'}</span>
+      <ChevronRight size={13} />
+    </button>
+  );
 }
 
 /** The central conversation with the main agent, and the open run's state below it. */
@@ -89,6 +112,7 @@ export function MessageList({
   run,
   agents,
   messages,
+  pendingText,
   hasMore,
   onEarlier,
   streaming,
@@ -97,11 +121,13 @@ export function MessageList({
   active,
   mainName,
   onShowWork,
+  onOpenSource,
   onResume,
 }: {
   run: Run | null;
   agents: Agent[];
   messages: Event[];
+  pendingText?: string;
   hasMore: boolean;
   onEarlier: () => void;
   streaming: string;
@@ -110,6 +136,7 @@ export function MessageList({
   active: boolean;
   mainName: string;
   onShowWork: () => void;
+  onOpenSource: (runId: string, agentId?: string) => void;
   onResume: () => void;
 }) {
   const lastUserSeq = Math.max(
@@ -146,7 +173,10 @@ export function MessageList({
               ) : (
                 <Flag size={13} />
               )}
-              <MarkdownText>{text}</MarkdownText>
+              <div className="update-content">
+                <MarkdownText>{text}</MarkdownText>
+                <WorkflowSource event={e} onOpen={onOpenSource} />
+              </div>
               <time>{timeLabel(e.created_at)}</time>
             </div>
           );
@@ -178,11 +208,27 @@ export function MessageList({
               <div className="message-bubble">
                 <MarkdownText>{text}</MarkdownText>
               </div>
+              <WorkflowSource event={e} onOpen={onOpenSource} />
               {status && <div className="delivery-status">{status}</div>}
             </div>
           </article>
         );
       })}
+      {pendingText && (
+        <article className="message user-message">
+          <div className="message-body">
+            <div className="message-heading">
+              <strong>You</strong>
+            </div>
+            <div className="message-bubble">
+              <MarkdownText>{pendingText}</MarkdownText>
+            </div>
+            <div className="delivery-status" role="status">
+              Sending…
+            </div>
+          </div>
+        </article>
+      )}
       {streaming && (
         <article className="message assistant-message">
           <div className="message-body">
@@ -263,7 +309,6 @@ export function Composer({
   project,
   settings,
   run,
-  runs,
   active,
   mainName,
   draft,
@@ -272,17 +317,16 @@ export function Composer({
   disabled,
   newAssignment,
   setNewAssignment,
+  compact = false,
   onSend,
   onStop,
   onRepository,
   onModel,
-  onViewRun,
 }: {
   inputRef: RefObject<HTMLTextAreaElement | null>;
   project: Project | null;
   settings: Settings | null;
   run: Run | null;
-  runs: Run[];
   active: boolean;
   mainName: string;
   draft: string;
@@ -291,55 +335,45 @@ export function Composer({
   disabled: boolean;
   newAssignment: boolean;
   setNewAssignment: (value: boolean) => void;
+  compact?: boolean;
   onSend: () => void;
   onStop: () => void;
   onRepository: () => void;
   onModel: () => void;
-  onViewRun: (id: string) => void;
 }) {
   return (
-    <div className="composer-area">
-      <div className="composer-context-row">
-        <button
-          className="composer-context"
-          title={project?.path || 'Connect a repository'}
-          aria-label={project ? 'Change repository' : 'Connect a repository'}
-          onClick={onRepository}
-        >
-          <FolderGit2 size={14} />
-          <span>{project?.name || 'Connect a repository'}</span>
-          <ChevronDown size={11} />
-        </button>
-        {settings && (
-          <button className="model-choice" onClick={onModel}>
-            <span>{modelLabel(project?.main_agent?.model || settings.model)}</span>
-            <ChevronDown size={12} />
+    <div className={`composer-area ${compact ? 'compact-composer' : ''}`}>
+      {!compact && (
+        <div className="composer-context-row">
+          <button
+            className="composer-context"
+            title={project?.path || 'Connect a repository'}
+            aria-label={project ? 'Change repository' : 'Connect a repository'}
+            onClick={onRepository}
+          >
+            <FolderGit2 size={14} />
+            <span>{project?.name || 'Connect a repository'}</span>
+            <ChevronDown size={11} />
           </button>
-        )}
-      </div>
-      {run && !active && (
+          {settings && (
+            <button className="model-choice" onClick={onModel}>
+              <span>{modelLabel(project?.main_agent?.model || settings.model)}</span>
+              <ChevronDown size={12} />
+            </button>
+          )}
+        </div>
+      )}
+      {!compact && run && !active && (
         <div className="assignment-options">
           <button
             className={newAssignment ? 'selected' : ''}
+            aria-pressed={newAssignment}
             onClick={() => setNewAssignment(!newAssignment)}
             title="Start a fresh assignment from the repository's current files, keeping this conversation"
           >
             <Plus size={12} />
             {newAssignment ? 'New assignment selected' : 'New assignment'}
           </button>
-          {runs.length > 1 && (
-            <select
-              aria-label="View assignment"
-              value={run.id}
-              onChange={(e) => onViewRun(e.target.value)}
-            >
-              {runs.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
       )}
       <div className={`composer ${submitting ? 'sending' : ''}`}>
@@ -347,11 +381,7 @@ export function Composer({
           ref={inputRef}
           rows={1}
           value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            e.target.style.height = 'auto';
-            e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
-          }}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
@@ -359,7 +389,7 @@ export function Composer({
             }
           }}
           placeholder={
-            active
+            active && !compact
               ? 'Add a thought or steer the work…'
               : project
                 ? `Message ${mainName}…`
@@ -370,7 +400,7 @@ export function Composer({
           disabled={disabled}
         />
         <div className="composer-controls">
-          {active && (
+          {active && !compact && (
             <button
               className="stop-button"
               onClick={onStop}
@@ -383,7 +413,7 @@ export function Composer({
           <button
             className="send-button"
             onClick={onSend}
-            disabled={!project || !draft.trim() || submitting}
+            disabled={disabled || !project || !draft.trim() || submitting}
             title="Send message"
             aria-label="Send message"
           >
