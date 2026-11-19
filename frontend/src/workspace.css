@@ -1,7 +1,6 @@
 .activity-panel {
-  width: 326px;
-  min-width: 300px;
-  background: #fbfcfe;
+  width: var(--work-panel-width);
+  background: var(--canvas);
   border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -11,16 +10,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px;
-  min-height: 62px;
+  padding: 14px 20px;
+  min-height: 55px;
 }
 .activity-heading > span {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #586b84;
-  font-weight: 500;
+  color: var(--ink);
+  font-weight: 650;
 }
 .activity-heading .icon-button {
   height: 26px;
@@ -28,28 +27,31 @@
 }
 .activity-tabs {
   display: flex;
-  padding: 0 15px;
+  padding: 0 17px;
   border-bottom: 1px solid var(--line);
-  gap: 7px;
+  gap: 9px;
 }
 .activity-tabs button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 11px 8px;
-  font-size: 11px;
-  color: #8b97a8;
+  gap: 5px;
+  padding: 10px 3px;
+  font-size: 12px;
+  color: var(--muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
+.activity-tabs button:hover {
+  color: var(--ink);
+}
 .activity-tabs button.active {
-  color: #4976af;
-  border-bottom-color: #7b9ecb;
+  color: var(--forest);
+  border-bottom-color: var(--accent);
 }
 .activity-tabs button > span {
   font-size: 10px;
-  background: #e9eff8;
+  background: var(--hover);
   padding: 1px 5px;
   border-radius: 5px;
 }
@@ -59,14 +61,9 @@
   min-height: 0;
 }
 .workflow-card {
-  margin: 22px 19px 27px;
-  padding: 15px 13px;
-  border: 1px solid #e2e8f1;
-  background: #fff;
-  border-radius: 11px;
-}
-.workflow-card .section-label {
-  font-size: 9px;
+  margin: 17px 20px 21px;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid var(--line);
 }
 .workflow-track {
   display: flex;
@@ -78,7 +75,7 @@
 .workflow-track:before {
   content: '';
   height: 1px;
-  background: #e0e7f1;
+  background: var(--line);
   position: absolute;
   top: 11px;
   left: 19px;
@@ -100,44 +97,41 @@
   height: 23px;
   width: 23px;
   border-radius: 50%;
-  border: 1px solid #e0e7f1;
-  background: #fff;
-  color: #a8b4c5;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  color: var(--muted);
   font-size: 10px;
 }
 .workflow-step small {
-  font-size: 10px;
-  color: #99a7bb;
+  font-size: 11px;
+  color: var(--muted);
 }
 .workflow-step.current > span {
-  background: #e6effd;
-  border-color: #b1c9ec;
-  color: #5c87c1;
-  box-shadow: 0 0 0 3px #edf3fc;
+  background: var(--sage);
+  border-color: #b7c8db;
+  color: var(--forest);
 }
 .workflow-step.current small {
-  color: #6387b9;
-  font-weight: 500;
+  color: var(--forest);
+  font-weight: 600;
 }
 .workflow-step.past > span {
   background: #e9f5ee;
-  color: #3f8a64;
+  color: #38735a;
   border-color: #c4dfcf;
 }
 .workflow-step.past small {
-  color: #5f8f75;
+  color: #38735a;
 }
 .section-label.padded {
   margin: 0 22px 13px;
 }
 .agent-card {
-  margin: 0 13px 7px;
-  border: 1px solid transparent;
-  border-radius: 10px;
+  margin: 0 12px 4px;
+  border-radius: 8px;
 }
 .agent-card.expanded {
-  border-color: #e0e7f1;
-  background: #fff;
+  background: var(--hover);
 }
 .agent-card-heading {
   display: flex;
@@ -145,11 +139,14 @@
   width: 100%;
   text-align: left;
   gap: 9px;
-  padding: 11px 8px;
-  border-radius: 9px;
+  padding: 9px 8px;
+  border-radius: 8px;
 }
 .agent-card-heading:hover {
-  background: #f0f4fa;
+  background: var(--hover);
+}
+.agent-card.expanded .agent-card-heading:hover {
+  background: #e8ece8;
 }
 .agent-avatar {
   display: flex;
@@ -157,9 +154,9 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
-  background: #e7edf6;
-  color: #7e93b2;
+  border-radius: 8px;
+  background: var(--sage);
+  color: var(--forest);
   font-weight: 500;
   font-size: 12px;
   flex-shrink: 0;
@@ -194,20 +191,20 @@
 .agent-identity strong {
   display: block;
   font-size: 12px;
-  font-weight: 500;
-  color: #5a6d87;
+  font-weight: 600;
+  color: var(--ink);
 }
 .agent-identity small {
   display: block;
   font-size: 10px;
-  color: #94a1b5;
+  color: var(--muted);
   margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .agent-card-heading > svg:last-child {
-  color: #b1bccd;
+  color: var(--muted);
 }
 .agent-expanded {
   padding: 4px 12px 14px;
@@ -220,12 +217,12 @@
 }
 .agent-state code {
   font-size: 10px;
-  color: #a8b3c4;
+  color: var(--muted);
 }
 .agent-expanded > p {
   font-size: 12px;
   line-height: 1.8;
-  color: #7c8ea8;
+  color: var(--muted);
   margin-bottom: 12px;
   white-space: pre-wrap;
 }
@@ -237,8 +234,8 @@
   overflow: auto;
   margin: 12px 0;
   padding: 12px;
-  background: #f2f5fa;
-  border-radius: 7px;
+  background: var(--canvas);
+  border-radius: 8px;
 }
 .agent-result .markdown {
   font-size: 12px;
@@ -250,8 +247,8 @@
   gap: 8px;
   margin: 22px 20px;
   padding-top: 18px;
-  border-top: 1px solid #e2e8f2;
-  color: #93a6c1;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
 }
 .branch-note span {
   display: block;
@@ -260,7 +257,7 @@
 }
 .branch-note code {
   font-size: 11px;
-  color: #7f98bb;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .panel-footer {
@@ -269,7 +266,7 @@
   align-items: center;
   gap: 7px;
   border-top: 1px solid var(--line);
-  color: #a1afc4;
+  color: var(--muted);
   font-size: 10px;
 }
 .activity-panel .empty-state {
@@ -306,13 +303,13 @@
   top: 36px;
   bottom: -9px;
   left: 17px;
-  background: #e1e8f2;
+  background: var(--line);
 }
 .timeline-event:last-child:before {
   display: none;
 }
 .timeline-event:hover {
-  background: #f0f4fb;
+  background: var(--hover);
 }
 .timeline-icon {
   height: 26px;
@@ -320,11 +317,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #dfe8f5;
-  border-radius: 8px;
-  color: #9ab0d0;
+  border-radius: 7px;
+  color: var(--forest);
   flex-shrink: 0;
-  background: #f7faff;
+  background: var(--sage);
   z-index: 1;
 }
 .timeline-event > span:nth-child(2) {
@@ -336,17 +332,17 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 1.7;
-  color: #7d91ae;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .timeline-event small {
   display: block;
   font-size: 10px;
-  color: #a1b1c8;
+  color: var(--muted);
   margin-top: 5px;
 }
 .timeline-event > svg {
-  color: #b5c3d6;
+  color: var(--muted);
   margin-top: 6px;
 }
 .artifacts-list {
@@ -360,10 +356,10 @@
   border-radius: 8px;
   width: 100%;
   text-align: left;
-  color: #9eb3d0;
+  color: var(--muted);
 }
 .artifact-row:hover {
-  background: #f0f5fc;
+  background: var(--hover);
 }
 .artifact-row > span {
   flex: 1;
@@ -375,11 +371,11 @@
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #758eaf;
+  color: var(--ink);
 }
 .artifact-row small {
   font-size: 10px;
-  color: #a2b3cc;
+  color: var(--muted);
   display: block;
   margin-top: 5px;
 }
@@ -388,12 +384,12 @@
 }
 .event-detail pre {
   margin: 0;
-  background: #f0f5fc;
+  background: var(--hover);
   padding: 16px;
   border-radius: 9px;
   font-size: 12px;
   line-height: 1.8;
-  color: #718aae;
+  color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 60vh;
