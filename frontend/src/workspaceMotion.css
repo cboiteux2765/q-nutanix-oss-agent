@@ -1,0 +1,40 @@
+.workspace-body.workspace-focused .conversation-scroll,
+.conversation-scroll .message-list > .message,
+.conversation-scroll .new-conversation .setup-message {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root.workspace-transition .workspace-body {
+    view-transition-name: workspace-content;
+  }
+
+  :root.workspace-transition .workspace-body .composer {
+    view-transition-name: workspace-composer;
+  }
+
+  :root.workspace-transition::view-transition {
+    pointer-events: none;
+  }
+
+  :root.workspace-transition::view-transition-group(root),
+  :root.workspace-transition::view-transition-old(root),
+  :root.workspace-transition::view-transition-new(root) {
+    animation: none;
+  }
+
+  :root.workspace-transition::view-transition-old(root) {
+    opacity: 0;
+  }
+
+  :root.workspace-transition::view-transition-group(workspace-content) {
+    animation-duration: 150ms;
+    animation-timing-function: ease-out;
+  }
+
+  :root.workspace-transition::view-transition-group(workspace-composer) {
+    z-index: 1;
+    animation-duration: 240ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}

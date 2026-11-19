@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { Ref } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -330,7 +330,7 @@ export function Composer({
   onRepository,
   onModel,
 }: {
-  inputRef: RefObject<HTMLTextAreaElement | null>;
+  inputRef: Ref<HTMLTextAreaElement>;
   project: Project | null;
   settings: Settings | null;
   run: Run | null;

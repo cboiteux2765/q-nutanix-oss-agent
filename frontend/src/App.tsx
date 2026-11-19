@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -35,8 +35,14 @@ import { Dashboard, DashboardRail } from './Dashboard';
 import { useRun } from './useRun';
 import { useWorkPanelKeyboard } from './useWorkPanelKeyboard';
 import { useWorkspaceRoute } from './workspaceRoute';
+import './workspaceMotion.css';
 
 type ChatHistory = { messages: Event[]; firstSeq: number | null; hasMore: boolean };
+type ComposerFocus = {
+  projectId: string | null;
+  view?: View;
+  selection?: [number, number, HTMLTextAreaElement['selectionDirection']];
+};
 const emptyHistory: ChatHistory = { messages: [], firstSeq: null, hasMore: false };
 
 export default function App() {
@@ -73,6 +79,7 @@ export default function App() {
   const [streamStart, setStreamStart] = useState<{ projectId: string; after: number } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const composerFocus = useRef<ComposerFocus | null>(null);
   const workspaceBody = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const currentProject = useRef<string | null>(null);
@@ -179,7 +186,7 @@ export default function App() {
 
   useEffect(() => {
     if (projectId && !routedProject) {
-      navigate({ projectId, runId: null, agentId: null, trace: false }, true);
+      navigate({ projectId, runId: null, agentId: null, trace: false }, { replace: true });
     }
   }, [projectId, routedProject, navigate]);
 
@@ -385,19 +392,47 @@ export default function App() {
       if (sameProject()) setLoadingEarlier(false);
     }
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (followMessages.current && chatting) bottom.current?.scrollIntoView({ block: 'end' });
   }, [chatting, chatMessages.length, streaming, supervisorDraft, submitting]);
 
-  const focusComposer = () => setTimeout(() => composer.current?.focus(), 20);
+  const attachComposer = useCallback(
+    (input: HTMLTextAreaElement | null) => {
+      const previous = composer.current;
+      if (!input && previous && previous === document.activeElement) {
+        // Capture the selection before switching views unmounts the input.
+        composerFocus.current = {
+          projectId,
+          selection: [previous.selectionStart, previous.selectionEnd, previous.selectionDirection],
+        };
+      }
+      composer.current = input;
+    },
+    [projectId],
+  );
+  useLayoutEffect(() => {
+    const focus = composerFocus.current;
+    const input = composer.current;
+    composerFocus.current = null;
+    if (
+      !focus ||
+      focus.projectId !== projectId ||
+      (focus.view && focus.view !== route.view) ||
+      !input
+    )
+      return;
+    input.focus({ preventScroll: true });
+    if (focus.selection) input.setSelectionRange(...focus.selection);
+  }, [route, projectId, onboarding, loading, serverError]);
+
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
         event.preventDefault();
         if (composer.current) composer.current.focus();
-        else if (projectId && !onboarding) {
+        else if (projectId && !onboarding && !loading && !serverError) {
+          composerFocus.current = { projectId, view: 'conversation' };
           navigate({ view: 'conversation', runId: null, agentId: null, trace: false });
-          focusComposer();
         }
       }
       if (event.key === 'Escape') {
@@ -407,7 +442,7 @@ export default function App() {
     };
     document.addEventListener('keydown', key);
     return () => document.removeEventListener('keydown', key);
-  }, [projectId, onboarding, navigate]);
+  }, [projectId, onboarding, loading, serverError, navigate]);
 
   function selectProject(next: Project) {
     setSetupRequested(false);
@@ -439,15 +474,16 @@ export default function App() {
   async function send() {
     const message = draft.trim();
     if (!projectId || !message || pendingSend) return;
-    navigate({ view: 'conversation' });
     if (!settings?.api_key_configured) {
+      navigate({ view: 'conversation' }, { animate: false });
       setSettingsModal(true);
       return;
     }
-    if (view !== 'conversation') focusComposer();
+    if (view !== 'conversation') composerFocus.current = { projectId, view: 'conversation' };
     setPendingSend({ projectId, text: message, after: chatMessages.at(-1)?.seq || 0 });
     setDraft('');
     followMessages.current = true;
+    navigate({ view: 'conversation' });
     try {
       await post(`/projects/${projectId}/messages`, {
         message,
@@ -495,15 +531,18 @@ export default function App() {
     setSetup('invite');
     setSetupVersion((version) => version + 1);
     localStorage.setItem('evo-onboarding-v1', 'invite');
-    navigate({ view: 'conversation', runId: null, agentId: null, trace: false });
+    navigate(
+      { view: 'conversation', runId: null, agentId: null, trace: false },
+      { animate: false },
+    );
   }
   function finishSetup(message: string) {
     localStorage.setItem('evo-onboarding-v1', 'complete');
     setSetup('complete');
     setSetupRequested(false);
     setDraft(message);
+    composerFocus.current = { projectId, view: 'conversation' };
     navigate({ view: 'conversation' });
-    focusComposer();
   }
   function addProject(next: Project, fromSetup = false) {
     setProjects((old) => [...old.filter((item) => item.id !== next.id), next]);
@@ -520,7 +559,7 @@ export default function App() {
   function renderComposer(compact = false) {
     return (
       <Composer
-        inputRef={composer}
+        inputRef={attachComposer}
         project={project}
         settings={settings}
         run={supervisorRun}
@@ -581,7 +620,7 @@ export default function App() {
             project={project}
             onStarter={(text) => {
               setDraft(text);
-              focusComposer();
+              composer.current?.focus({ preventScroll: true });
             }}
             onSetup={beginSetup}
           />
@@ -698,7 +737,6 @@ export default function App() {
             <Menu size={20} />
           </button>
           <div className="chat-contact">
-            <Logo small />
             <div>
               <strong>
                 {home
@@ -784,8 +822,8 @@ export default function App() {
                 selectedRunId={runId}
                 hasConversation={!!chatMessages.length}
                 onConversation={() => {
+                  composerFocus.current = { projectId, view: 'conversation' };
                   changeView('conversation');
-                  focusComposer();
                 }}
                 onOpenRun={openWork}
                 onRefresh={() => void refreshDashboard(project.id)}

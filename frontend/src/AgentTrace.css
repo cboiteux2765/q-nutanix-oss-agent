@@ -36,7 +36,9 @@
   border-radius: 16px;
   background: var(--canvas);
   color: var(--ink);
-  box-shadow: 0 24px 80px #222b351f, 0 2px 8px #222b350a;
+  box-shadow:
+    0 24px 80px #222b351f,
+    0 2px 8px #222b350a;
 }
 
 .agent-trace-dialog[open] {
