@@ -784,6 +784,54 @@ a.dashboard-feed-item:hover {
   min-width: 0;
 }
 
+@media (min-height: 820px) {
+  @container (width > 1000px) {
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      flex: none;
+      min-block-size: 100%;
+      padding-block-end: clamp(24px, 3dvh, 40px);
+    }
+
+    .dashboard-grid {
+      flex: 1 0 auto;
+      grid-template-rows: minmax(min-content, 1fr) auto;
+    }
+
+    .dashboard-repository,
+    .dashboard-attention {
+      justify-content: center;
+      padding-block: 24px;
+    }
+
+    .dashboard-feeds {
+      flex: 0;
+    }
+
+    .dashboard-feed {
+      padding-block: clamp(9px, 1.25dvh, 16px);
+    }
+
+    .dashboard-attention-empty {
+      flex: 0;
+      min-height: 220px;
+      padding-block: 14px 24px;
+    }
+
+    .dashboard-workflows {
+      display: flex;
+      flex-direction: column;
+      min-block-size: clamp(170px, 17dvh, 220px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dashboard-workflows-empty {
+      margin-block: auto;
+    }
+  }
+}
+
 @container (max-width: 1000px) {
   .dashboard-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
