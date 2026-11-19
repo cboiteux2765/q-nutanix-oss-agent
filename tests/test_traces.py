@@ -164,6 +164,31 @@ def test_tool_completion_rolls_back_when_transcript_cannot_be_committed(store):
     assert store.events("r1", "a1") == store.messages("a1") == store.transcript("a1") == []
 
 
+def test_side_request_messages_keep_provenance_and_stay_out_of_model_context(store, monkeypatch):
+    secret = "sk-side-request-key-12345"
+    monkeypatch.setenv("EVO_SIDE_REQUEST_TEST_KEY", secret)
+    store.put("runs", "r1", {"settings_snapshot": {
+        "base_url": "http://127.0.0.1:9/v1", "api_key_env": "EVO_SIDE_REQUEST_TEST_KEY",
+    }})
+    store.put("agents", "a1", {"run_id": "r1"})
+    original = {"role": "system", "content": "Instructions"}
+    store.append_messages("a1", [(original, None)])
+    event = store.event("r1", "a1", "message", {"role": "assistant", "text": "Quick reply"})
+    store.archive_messages("a1", [
+        ({"role": "assistant", "content": "Quick reply", "reasoning_content": f"Looked up {secret}."}, event["id"]),
+        ({"role": "tool", "tool_call_id": "lookup-1", "content": f"Result contained {secret}."}, None),
+    ], source="quick_responder")
+    monkeypatch.delenv("EVO_SIDE_REQUEST_TEST_KEY")
+
+    with closing(Store(store.data_dir)) as reopened:
+        assert reopened.messages("a1") == [original]
+        entries = reopened.transcript("a1")
+        assert [entry["source"] for entry in entries] == ["recorded", "quick_responder", "quick_responder"]
+        assert entries[1]["event_id"] == event["id"]
+        assert entries[1]["reasoning"] == [{"kind": "content", "text": "Looked up [redacted]."}]
+        assert entries[2]["message"]["content"] == "Result contained [redacted]."
+
+
 def test_legacy_backfill_recovers_checkpoint_links_and_reports_partial_history(tmp_path):
     with closing(Store(tmp_path)) as old:
         old.put("projects", "p1", {})

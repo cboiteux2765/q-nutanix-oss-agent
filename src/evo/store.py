@@ -209,6 +209,9 @@ class Store:
         settings = (run or {}).get("settings_snapshot") or {}
         return get_api_key(settings) if settings.get("base_url") else ""
 
+    def _agent_secret(self, agent_id: str) -> str:
+        return self._run_secret((self.get("agents", agent_id) or {}).get("run_id"))
+
     @staticmethod
     def _archive_message(db, agent_id, message, event_id, created_at, source, secret):
         db.execute(
@@ -302,8 +305,7 @@ class Store:
             return
         with self._transaction() as db:
             if secret is None:
-                agent = self.get("agents", agent_id) or {}
-                secret = self._run_secret(agent.get("run_id"))
+                secret = self._agent_secret(agent_id)
             self._append_messages(db, agent_id, items, utc_now(), secret)
 
     def _append_messages(self, db, agent_id, items, created_at, secret):
@@ -318,6 +320,18 @@ class Store:
         )
         for message, event_id in items:
             self._archive_message(db, agent_id, message, event_id, created_at, "recorded", secret)
+
+    def archive_messages(self, agent_id: str, items: list[tuple[dict, str | None]], *,
+                         source: str, secret: str | None = None) -> None:
+        """Archive messages from a side request under its source, independently of working context."""
+        if not items:
+            return
+        with self._transaction() as db:
+            if secret is None:
+                secret = self._agent_secret(agent_id)
+            created_at = utc_now()
+            for message, event_id in items:
+                self._archive_message(db, agent_id, message, event_id, created_at, source, secret)
 
     def transcript(self, agent_id: str, after: int = 0, limit: int = 100) -> list[dict]:
         """Read the append-only transcript in insertion order."""
