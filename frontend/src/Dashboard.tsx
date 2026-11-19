@@ -18,7 +18,7 @@ import {
   Workflow as WorkflowIcon,
 } from 'lucide-react';
 import { api, errorText, post } from './api';
-import { Logo, Modal, relativeDate, Status } from './components';
+import { Modal, relativeDate, Status } from './components';
 import {
   ACTIVE_STATES,
   type ActivitySettings,
@@ -641,7 +641,6 @@ export function Dashboard({
       <div className="dashboard-grid">
         <section className="dashboard-card dashboard-chat" aria-labelledby="dashboard-chat-title">
           <div className="dashboard-chat-content">
-            <Logo />
             <h2 id="dashboard-chat-title">Talk to {mainName}</h2>
             {composer}
             <button className="dashboard-chat-link" onClick={onConversation}>
@@ -775,9 +774,6 @@ export function Dashboard({
             </div>
           ) : (
             <div className="dashboard-attention-empty">
-              <span>
-                <Bell size={21} strokeWidth={1.6} />
-              </span>
               <p>
                 {data
                   ? 'You’re all caught up'
