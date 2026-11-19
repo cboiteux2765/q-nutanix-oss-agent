@@ -1,6 +1,7 @@
 """Evolution experiments: GEPA search, held-out gate, budgets, isolation, activation and rollback."""
 
 import asyncio
+from functools import partial
 import json
 
 import pytest
@@ -9,6 +10,7 @@ from evo import runtime as runtime_module
 from evo.evolve import service as service_module
 from evo.evolve.service import ExperimentService
 from evo.evolve.tasks import TaskBundles, replay_dir, task_python
+from evo.evolution import EvolutionService
 from evo.runtime import Runtime
 
 from .conftest import FakeProvider, python_call, reply
@@ -74,6 +76,44 @@ def make_run(store, project, runtime_status="waiting", phase="code"):
 async def finish(service, experiment):
     await service.jobs[experiment["id"]]
     return service.get(experiment["id"])
+
+
+@pytest.mark.parametrize("action", ["promote", "activate", "rollback"])
+def test_spec_prompt_transition_is_atomic(store, project, monkeypatch, action):
+    runtime = Runtime(store)
+    project_id = project["id"]
+    legacy = EvolutionService(store, runtime)
+    experiments = ExperimentService(store, runtime)
+    change = {
+        "promote": partial(legacy.promote_prompt, project_id, "target"),
+        "activate": partial(experiments.activate, project_id, "target", force=True),
+        "rollback": partial(experiments.rollback, project_id, "spec", "target"),
+    }[action]
+
+    def seed(prompt_id, status, role="spec"):
+        store.put("prompts", prompt_id, {"project_id": project_id, "role": role, "status": status})
+
+    seed("previous", "active")
+    seed("legacy-active", "active")
+    seed("target", "candidate")
+    seed("code", "active", "code")
+    put = store._put
+
+    def fail_replacing_prompt(db, collection, record_id, fields):
+        if collection == "prompts" and record_id == "target":
+            raise OSError("write failed")
+        return put(db, collection, record_id, fields)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "_put", fail_replacing_prompt)
+        with pytest.raises(OSError, match="write failed"):
+            change()
+    active = {"project_id": project_id, "role": "spec", "status": "active"}
+    assert [p["id"] for p in store.list("prompts", **active)] == ["previous", "legacy-active"]
+
+    change()
+    assert [p["id"] for p in store.list("prompts", **active)] == ["target"]
+    assert store.get("prompts", "code")["status"] == "active"
 
 
 def test_gepa_experiment_gate_activation_and_rollback(store, project, fakes, fake_provider):

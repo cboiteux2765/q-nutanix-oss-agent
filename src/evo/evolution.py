@@ -139,12 +139,15 @@ class EvolutionService:
             })
 
     def promote_prompt(self, project_id: str, prompt_id: str) -> dict:
-        with _LOCK:
+        def promote(tx):
             prompt = self._prompt(project_id, prompt_id)
             for current in self.list_prompts(project_id, prompt["role"]):
                 if current["status"] == "active" and current["id"] != prompt_id:
-                    self.store.put("prompts", current["id"], {"status": "superseded"})
-            return self.store.put("prompts", prompt_id, {"status": "active"})
+                    tx.put("prompts", current["id"], {"status": "superseded"})
+            return tx.put("prompts", prompt_id, {"status": "active"})
+
+        with _LOCK:
+            return self.store.transact(promote)
 
     def list_evaluations(self, project_id: str, prompt_id: str | None = None) -> list[dict]:
         require(self.store, "projects", project_id)

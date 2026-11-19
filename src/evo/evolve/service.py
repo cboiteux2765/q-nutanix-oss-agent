@@ -1033,38 +1033,45 @@ class ExperimentService:
 
     # ------------------------------------------------------------------ promotion
     def activate(self, project_id: str, prompt_id: str, *, force: bool = False, actor: str = "user") -> dict:
-        prompt = require(self.store, "prompts", prompt_id)
-        if prompt["project_id"] != project_id:
-            raise KeyError(f"No prompt {prompt_id!r} in this project.")
-        gate = prompt.get("gate")
-        if not (gate and gate.get("passed")) and not force:
-            raise PermissionError("This version has not passed held-out evaluation. Activate it anyway to "
-                                  "override; it will be labelled as activated without passing evaluation.")
-        previous = self._active_prompt(project_id, prompt["role"])
-        if previous and previous["id"] != prompt_id:
-            self.store.put("prompts", previous["id"], {"status": "superseded"})
-        label = ("passed held-out evaluation" if gate and gate.get("passed")
-                 else "activated without passing evaluation" if gate else "activated without evaluation")
-        history = [*prompt.get("activations", []), {"at": _now(), "by": actor, "label": label,
-                                                    "replaced_prompt_id": previous["id"] if previous else None}]
-        return self.store.put("prompts", prompt_id, {"status": "active", "activation_label": label,
-                                                     "activations": history})
+        def activate(tx):
+            prompt = require(self.store, "prompts", prompt_id)
+            if prompt["project_id"] != project_id:
+                raise KeyError(f"No prompt {prompt_id!r} in this project.")
+            gate = prompt.get("gate")
+            if not (gate and gate.get("passed")) and not force:
+                raise PermissionError("This version has not passed held-out evaluation. Activate it anyway to "
+                                      "override; it will be labelled as activated without passing evaluation.")
+            active = self.store.list("prompts", project_id=project_id, role=prompt["role"], status="active")
+            for previous in active:
+                if previous["id"] != prompt_id:
+                    tx.put("prompts", previous["id"], {"status": "superseded"})
+            label = ("passed held-out evaluation" if gate and gate.get("passed")
+                     else "activated without passing evaluation" if gate else "activated without evaluation")
+            history = [*prompt.get("activations", []), {"at": _now(), "by": actor, "label": label,
+                                                        "replaced_prompt_id": active[0]["id"] if active else None}]
+            return tx.put("prompts", prompt_id, {"status": "active", "activation_label": label,
+                                                 "activations": history})
+
+        return self.store.transact(activate)
 
     def rollback(self, project_id: str, role: str, prompt_id: str | None = None) -> dict:
         """Return a role to an earlier version, or to the built-in instructions when prompt_id is None."""
-        current = self._active_prompt(project_id, role)
-        if prompt_id:
-            target = require(self.store, "prompts", prompt_id)
-            if target["project_id"] != project_id or target["role"] != role:
+        def rollback(tx):
+            target = require(self.store, "prompts", prompt_id) if prompt_id else None
+            if target and (target["project_id"] != project_id or target["role"] != role):
                 raise KeyError("Choose a version of this role.")
-        if current:
-            self.store.put("prompts", current["id"], {"status": "rolled_back", "rolled_back_at": _now()})
-        if not prompt_id:
-            return {"role": role, "active": None, "rolled_back": current["id"] if current else None}
-        history = [*target.get("activations", []), {"at": _now(), "by": "user", "label": "rollback",
-                                                    "replaced_prompt_id": current["id"] if current else None}]
-        restored = self.store.put("prompts", prompt_id, {"status": "active", "activations": history})
-        return {"role": role, "active": restored, "rolled_back": current["id"] if current else None}
+            active = self.store.list("prompts", project_id=project_id, role=role, status="active")
+            previous_id = active[0]["id"] if active else None
+            for current in active:
+                tx.put("prompts", current["id"], {"status": "rolled_back", "rolled_back_at": _now()})
+            restored = None
+            if target:
+                history = [*target.get("activations", []), {"at": _now(), "by": "user", "label": "rollback",
+                                                           "replaced_prompt_id": previous_id}]
+                restored = tx.put("prompts", prompt_id, {"status": "active", "activations": history})
+            return {"role": role, "active": restored, "rolled_back": previous_id}
+
+        return self.store.transact(rollback)
 
     def cleanup_rollout_dirs(self, keep_days: int = 30) -> None:
         cutoff = time.time() - keep_days * 86400
