@@ -73,8 +73,11 @@ def test_spec_handoff_pins_evidence_and_prompt(store, spec_run, draft):
     assert contract["sources"] == context["sources"]
     assert contract["prompt"]["hash"] == spec_run["spec_prompt"]["hash"]
     assert "node_id" not in contract["draft"]["acceptance_tests"][0]
+    test_stage_document = ArtifactStore(store).write(
+        spec_run["id"], "spec", "Approved Test-stage document", "{}", "specification"
+    )
     handoff = workflow.handoff("spec", "code", "Ready to implement.",
-                               [published["artifact_id"], published["markdown_artifact_id"]])
+                               [published["artifact_id"], published["markdown_artifact_id"], test_stage_document["id"]])
     assert workflow.advance("root", "code", handoff["id"])["phase"] == "code"
 
 

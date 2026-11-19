@@ -309,16 +309,17 @@ class Specification:
         return result
 
     def verify_handoff(self, run: dict, agent_id: str, artifact_ids: list[str]) -> None:
-        artifacts = [require(self.store, "artifacts", artifact_id) for artifact_id in artifact_ids]
-        contracts = [artifact for artifact in artifacts if artifact["kind"] == SPEC_ARTIFACT_KIND]
+        contracts = [publication for artifact_id in artifact_ids
+                     if (publication := self.store.get("spec_publications", artifact_id))]
         if not contracts and not (run.get("spec_schema_version") or run.get("specification_artifact_id")):
-            return  # Legacy runs accepted a free-text specification.
+            return  # Legacy handoffs accept the existing same-run specification artifacts.
         if len(contracts) != 1:
-            raise ValueError("Attach exactly one structured specification artifact from spec.publish.")
-        artifact = contracts[0]
-        publication = self.store.get("spec_publications", artifact["id"])
+            raise ValueError("Attach exactly one structured publication from spec.publish.")
+        publication = contracts[0]
+        artifact = require(self.store, "artifacts", publication["id"])
         prompt = run.get("spec_prompt") or _prompt_summary(None)
-        if (not publication or artifact["run_id"] != run["id"] or publication["run_id"] != run["id"]
+        if (artifact["kind"] != SPEC_ARTIFACT_KIND
+                or artifact["run_id"] != run["id"] or publication["run_id"] != run["id"]
                 or publication["agent_id"] != agent_id
                 or publication["workflow_round"] != run.get("workflow_round", 1)
                 or publication["schema_version"] != SPEC_SCHEMA_VERSION
