@@ -1,0 +1,247 @@
+.agent-history {
+  width: 100%;
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: clamp(20px, 3vw, 44px);
+}
+
+.agent-history-heading,
+.agent-history-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-history-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  padding-bottom: 21px;
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-history-heading h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(24px, 3.1vw, 36px);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.agent-history-heading h1 svg {
+  color: var(--forest);
+}
+
+.agent-history-tools {
+  flex: 0 1 308px;
+  min-width: 0;
+}
+
+.agent-history-search {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.agent-history-search svg {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.agent-history-search input {
+  min-height: 38px;
+  padding: 7px 10px 7px 35px;
+  font-size: 13px;
+}
+
+.agent-history-summary {
+  margin: 16px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-history-group {
+  padding: 17px 0 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-history-workflow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-block: 2px 11px;
+}
+
+.agent-history-workflow > svg {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+.agent-history-workflow > div {
+  min-width: 0;
+}
+
+.agent-history-workflow h2 button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 0;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.agent-history-workflow h2 svg {
+  color: var(--muted);
+}
+
+.agent-history-workflow h2 button:hover,
+.agent-history-workflow h2 button:hover svg {
+  color: var(--forest);
+}
+
+.agent-history-meta,
+.agent-history-attempt > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.agent-history-meta {
+  align-items: center;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agent-history-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-history-branch span,
+.agent-history-attempt strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-attempts {
+  margin: 0 0 0 8px;
+  padding: 0 0 0 13px;
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+
+.agent-history-attempts li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 7px;
+}
+
+.agent-history-attempts li + li {
+  margin-top: 3px;
+}
+
+.agent-history-attempts li[data-selected='true'] {
+  background: var(--sage);
+}
+
+.agent-history-attempt strong {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.agent-history-attempt small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agent-history-attempt p,
+.agent-history-workflow h2 button span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.agent-history-attempt p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-history-thread,
+.agent-history-empty button,
+.agent-history-error button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.agent-history-thread:hover,
+.agent-history-empty button:hover,
+.agent-history-error button:hover {
+  background: var(--sage);
+}
+
+.agent-history-attempts li[data-selected='true'] .agent-history-thread:hover {
+  background: var(--paper);
+}
+
+.agent-history-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 44px 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.agent-history-empty h2 {
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.agent-history-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: #964f43;
+  font-size: 13px;
+}
+
+.agent-history-error span {
+  flex: 1 1 175px;
+  overflow-wrap: anywhere;
+}
