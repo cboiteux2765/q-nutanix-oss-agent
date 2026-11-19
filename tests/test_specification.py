@@ -163,11 +163,11 @@ def test_revision_after_spec_reopens_clean_workflow(store, spec_run):
         workflow.specification.revise_request("root", event["id"])
     store.put("agents", "code", {"status": "cancelled"})
     path = Path(spec_run["workdir"]) / "app.py"
-    original = path.read_text(encoding="utf-8")
+    original = path.read_bytes()
     path.write_text("dirty edits\n", encoding="utf-8")
     with pytest.raises(Conflict, match="restore the implementation worktree"):
         workflow.specification.revise_request("root", event["id"])
-    path.write_text(original, encoding="utf-8")
+    path.write_bytes(original)
     assert workflow.specification.revise_request("root", event["id"])["phase"] == "spec"
     run = store.get("runs", spec_run["id"])
     assert run["workflow_round"] == 2
