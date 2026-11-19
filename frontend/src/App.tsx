@@ -38,6 +38,7 @@ import { useWorkspaceRoute } from './workspaceRoute';
 import './workspaceMotion.css';
 
 type ChatHistory = { messages: Event[]; firstSeq: number | null; hasMore: boolean };
+type ProjectDraft = { projectId: string | null; text: string };
 type ComposerFocus = {
   projectId: string | null;
   view?: View;
@@ -53,7 +54,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState('');
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [draft, setDraft] = useState('');
+  const [projectDraft, setProjectDraft] = useState<ProjectDraft>({ projectId: null, text: '' });
   const [pendingSend, setPendingSend] = useState<{
     projectId: string;
     text: string;
@@ -93,6 +94,7 @@ export default function App() {
   const project =
     routedProject || projects.find((item) => item.id === savedProject) || projects[0] || null;
   const projectId = project?.id || null;
+  const draft = projectDraft.projectId === projectId ? projectDraft.text : '';
   const dashboard = dataProject === projectId ? dashboardData : null;
   const history = dataProject === projectId ? storedHistory : emptyHistory;
   const chatMessages = history.messages;
@@ -249,7 +251,9 @@ export default function App() {
     setConversationError('');
     setDashboard(null);
     setDashboardError('');
-    setDraft('');
+    setProjectDraft((current) =>
+      current.projectId === projectId ? current : { projectId, text: '' },
+    );
     setNewAssignment(false);
     followMessages.current = true;
     if (!projectId) return;
@@ -471,6 +475,9 @@ export default function App() {
   function showSupervisorWork() {
     if (supervisorRun) openWork(supervisorRun.id);
   }
+  function setDraft(text: string) {
+    setProjectDraft({ projectId, text });
+  }
   async function send() {
     const message = draft.trim();
     if (!projectId || !message || pendingSend) return;
@@ -497,7 +504,11 @@ export default function App() {
         });
       }
     } catch (cause) {
-      if (currentProject.current === projectId) setDraft((current) => current || message);
+      if (currentProject.current === projectId) {
+        setProjectDraft((current) =>
+          current.projectId === projectId && !current.text ? { projectId, text: message } : current,
+        );
+      }
       notify(errorText(cause), true);
     } finally {
       setPendingSend(null);
