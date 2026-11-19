@@ -19,6 +19,11 @@ SCHEMA_VERSION = 3
 # Record fields that list() filters on often enough to deserve an index.
 _INDEXED_FIELDS = ("run_id", "project_id", "parent_id")
 _FIELD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_PROJECT_EVENT_SCOPE = """
+    FROM events JOIN records AS runs ON runs.collection = 'runs' AND runs.id = events.run_id
+    WHERE json_extract(runs.data, '$.project_id') = ?
+    AND coalesce(json_extract(runs.data, '$.evaluation'), 0) = 0
+"""
 
 
 def utc_now() -> str:
@@ -478,6 +483,22 @@ class Store:
                 (project_id, before, before, limit),
             ).fetchall()
         return [self._decode_event(row) for row in reversed(rows)]
+
+    def project_events(self, project_id: str, after: int = 0, limit: int = 100) -> list[dict]:
+        """Read production events for a project across workflows and the supervisor."""
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT events.* {_PROJECT_EVENT_SCOPE} AND events.seq > ? ORDER BY events.seq LIMIT ?",
+                (project_id, after, limit),
+            ).fetchall()
+        return [self._decode_event(row) for row in rows]
+
+    def project_event_cursor(self, project_id: str) -> int:
+        """Return the last production event sequence in this project, or zero."""
+        with self._lock:
+            return self._db.execute(
+                f"SELECT coalesce(max(events.seq), 0) {_PROJECT_EVENT_SCOPE}", (project_id,)
+            ).fetchone()[0]
 
     def shared_get(self, scope: str, key: str) -> dict | None:
         with self._lock:

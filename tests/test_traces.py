@@ -152,6 +152,29 @@ def test_trace_pages_use_stable_cursors_and_scope_to_project_run_and_agent(store
         assert [entry["message"]["content"] for entry in new_page["entries"]] == ["four"]
 
 
+def test_project_events_continue_across_runs_and_stay_within_production_scope(store):
+    store.put("runs", "product", {"project_id": "p1"})
+    store.put("runs", "supervisor", {"project_id": "p1", "kind": "supervisor"})
+    store.put("runs", "evaluation", {"project_id": "p1", "evaluation": True})
+    store.put("runs", "foreign", {"project_id": "p2"})
+    first = store.event("product", "a1", "agent.created", {"role": "code"})
+    foreign = store.event("foreign", "a2", "message", {"text": "Different project"})
+    second = store.event("supervisor", None, "run.status", {"status": "running"})
+    store.event("evaluation", "test-agent", "message", {"text": "Evaluation"})
+    store.event("unknown-run", None, "run.status", {"status": "failed"})
+
+    assert store.project_event_cursor("p1") == second["seq"]
+    assert store.project_event_cursor("p2") == foreign["seq"]
+    assert store.project_event_cursor("no-events") == 0
+    page = store.project_events("p1", limit=1)
+    assert page == [first]
+    third = store.event("product", "a1", "agent.status", {"status": "completed"})
+    assert store.project_events("p1", after=page[-1]["seq"]) == [second, third]
+    assert store.project_events("p1", after=third["seq"]) == []
+    assert store.project_event_cursor("p1") == third["seq"]
+    assert store.project_events("p2") == [foreign]
+
+
 def test_tool_completion_rolls_back_when_transcript_cannot_be_committed(store):
     with closing(sqlite3.connect(store.data_dir / "evo.db")) as db:
         db.execute(
