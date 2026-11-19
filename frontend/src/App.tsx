@@ -6,6 +6,7 @@ import {
   FolderGit2,
   LoaderCircle,
   Menu,
+  PanelLeftOpen,
   PanelRightOpen,
   RefreshCw,
   Settings2,
@@ -24,6 +25,7 @@ import {
 import ProjectModal from './ProjectModal';
 import SettingsModal from './SettingsModal';
 import ActivityPanel from './ActivityPanel';
+import AgentHistory from './AgentHistory';
 import { MemoryView, SkillsView } from './Knowledge';
 import { EvolutionView } from './Evolution';
 import { SpecLabView } from './SpecLab';
@@ -48,7 +50,7 @@ const emptyHistory: ChatHistory = { messages: [], firstSeq: null, hasMore: false
 
 export default function App() {
   const { route, navigate } = useWorkspaceRoute();
-  const { view, runId, agentId, trace } = route;
+  const { view, role, runId, agentId, trace } = route;
   const [projects, setProjects] = useState<Project[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,9 @@ export default function App() {
   const [agentModal, setAgentModal] = useState(false);
   const [projectMenu, setProjectMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('evo-sidebar-collapsed') === 'true',
+  );
   const [storedHistory, setHistory] = useState(emptyHistory);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [conversationLoading, setConversationLoading] = useState(false);
@@ -81,7 +86,10 @@ export default function App() {
   const bottom = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const composerFocus = useRef<ComposerFocus | null>(null);
+  const sidebarExpand = useRef<HTMLButtonElement>(null);
+  const sidebarFocus = useRef<'expand' | 'collapse' | null>(null);
   const workspaceBody = useRef<HTMLDivElement>(null);
+  const mainContent = useRef<HTMLElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const currentProject = useRef<string | null>(null);
   const conversationGeneration = useRef(0);
@@ -101,7 +109,9 @@ export default function App() {
   const onboarding = setup === 'invite' && (!project || setupRequested);
   const home = view === 'workspace' && !!project && !onboarding;
   const chatting = view === 'conversation' || (view === 'workspace' && !home);
-  const workView = home || (chatting && !onboarding);
+  const showingHistory = view === 'agents' && !!project && !onboarding;
+  const workView = home || (chatting && !onboarding) || showingHistory;
+  const phaseName = role === 'qa' ? 'QA' : role ? role[0].toUpperCase() + role.slice(1) : 'Spec';
   const mainName = project?.main_agent?.name || 'EVO';
   const submitting = !!pendingSend && pendingSend.projectId === projectId;
   const pendingText =
@@ -151,11 +161,16 @@ export default function App() {
     closeWork,
   );
   const workAgents = workRun ? work.detail?.agents || [] : [];
-  const roster = workRun
-    ? workAgents
-    : (dashboard?.workflows || []).flatMap((workflow) =>
-        (workflow.agents || []).filter((agent) => ACTIVE_STATES.includes(agent.status)),
-      );
+  const roster = Array.from(
+    new Map(
+      [
+        ...workAgents,
+        ...(dashboard?.workflows || []).flatMap((workflow) =>
+          (workflow.agents || []).filter((agent) => ACTIVE_STATES.includes(agent.status)),
+        ),
+      ].map((agent) => [agent.id, agent]),
+    ).values(),
+  );
 
   const active = !!supervisorRun && ACTIVE_STATES.includes(supervisorRun.status);
   const delivered = useMemo(
@@ -448,6 +463,44 @@ export default function App() {
     return () => document.removeEventListener('keydown', key);
   }, [projectId, onboarding, loading, serverError, navigate]);
 
+  useLayoutEffect(() => {
+    const target = sidebarFocus.current;
+    sidebarFocus.current = null;
+    if (!target) return;
+    const frame = requestAnimationFrame(() => {
+      if (target === 'expand') sidebarExpand.current?.focus({ preventScroll: true });
+      if (target === 'collapse')
+        document
+          .querySelector<HTMLElement>('#workspace-sidebar .sidebar-collapse')
+          ?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [sidebarCollapsed]);
+
+  useLayoutEffect(() => {
+    if (view === 'agents') mainContent.current?.scrollTo(0, 0);
+  }, [view, role, projectId]);
+
+  function toggleSidebar() {
+    if (window.matchMedia('(max-width: 640px)').matches) {
+      setSidebarOpen(false);
+      return;
+    }
+    const next = !sidebarCollapsed;
+    sidebarFocus.current = next ? 'expand' : 'collapse';
+    setSidebarCollapsed(next);
+    setProjectMenu(false);
+    localStorage.setItem('evo-sidebar-collapsed', String(next));
+  }
+
+  function openPhaseHistory(nextRole: string) {
+    setSetupRequested(false);
+    setSidebarOpen(false);
+    setProjectMenu(false);
+    setNewAssignment(false);
+    navigate({ view: 'agents', role: nextRole, runId: null, agentId: null, trace: false });
+  }
+
   function selectProject(next: Project) {
     setSetupRequested(false);
     setProjectMenu(false);
@@ -587,6 +640,8 @@ export default function App() {
         onStop={() => void setSupervisorState('cancel')}
         onRepository={() => {
           if (project) {
+            setSidebarCollapsed(false);
+            localStorage.setItem('evo-sidebar-collapsed', 'false');
             setSidebarOpen(true);
             setProjectMenu(true);
           } else beginSetup();
@@ -692,6 +747,19 @@ export default function App() {
         <ArrowRight size={15} />
       </button>
     </div>
+  ) : view === 'agents' ? (
+    <AgentHistory
+      key={`${project.id}/${role}`}
+      project={project}
+      role={role || 'spec'}
+      workflows={dashboard?.workflows || []}
+      loading={!dashboard && (dataProject !== projectId || !dashboardError)}
+      error={dataProject === projectId ? dashboardError : ''}
+      selectedAgentId={agentId}
+      onOpen={openWork}
+      onOpenWorkflow={openWork}
+      onRefresh={() => void refreshDashboard(project.id)}
+    />
   ) : view === 'memory' ? (
     <MemoryView project={project} notify={notify} />
   ) : view === 'skills' ? (
@@ -713,6 +781,10 @@ export default function App() {
       )}
       <Sidebar
         open={sidebarOpen}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+        onPhaseHistory={openPhaseHistory}
+        historyRole={showingHistory ? role : null}
         onClose={() => setSidebarOpen(false)}
         projects={projects}
         project={project}
@@ -743,10 +815,25 @@ export default function App() {
           <button
             className="icon-button mobile-menu"
             aria-label="Open navigation"
+            aria-controls="workspace-sidebar"
+            aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen(true)}
           >
             <Menu size={20} />
           </button>
+          {sidebarCollapsed && (
+            <button
+              ref={sidebarExpand}
+              className="icon-button sidebar-expand"
+              aria-label="Expand sidebar"
+              aria-controls="workspace-sidebar"
+              aria-expanded={false}
+              title="Expand sidebar"
+              onClick={toggleSidebar}
+            >
+              <PanelLeftOpen size={19} />
+            </button>
+          )}
           <div className="chat-contact">
             <div>
               <strong>
@@ -754,7 +841,9 @@ export default function App() {
                   ? 'Dashboard'
                   : chatting
                     ? mainName
-                    : RESOURCE_TABS.find((tab) => tab.id === view)?.label}
+                    : showingHistory
+                      ? `${phaseName} history`
+                      : RESOURCE_TABS.find((tab) => tab.id === view)?.label}
               </strong>
               {project?.name && <span>{project.name}</span>}
             </div>
@@ -800,6 +889,7 @@ export default function App() {
           className={`workspace-body ${chatting ? 'workspace-focused' : ''}`}
         >
           <main
+            ref={mainContent}
             className={`main-content ${chatting ? '' : 'scrollable'} ${home ? 'dashboard-main' : ''}`}
           >
             {loading ? (

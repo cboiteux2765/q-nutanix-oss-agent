@@ -5,21 +5,33 @@ import type { View } from './Sidebar';
 type WorkspaceRoute = {
   projectId: string | null;
   view: View;
+  role: string | null;
   runId: string | null;
   agentId: string | null;
   trace: boolean;
 };
 
-const views = new Set<View>(['workspace', 'conversation', 'memory', 'skills', 'evolution', 'spec']);
+const views = new Set<View>([
+  'workspace',
+  'conversation',
+  'memory',
+  'skills',
+  'evolution',
+  'spec',
+  'agents',
+]);
+const phaseRoles = new Set(['spec', 'code', 'test', 'qa']);
 const composerViews = new Set<View>(['workspace', 'conversation']);
 
 function readRoute(): WorkspaceRoute {
   const params = new URLSearchParams(window.location.hash.slice(1));
   const view = params.get('view') as View;
+  const role = params.get('role');
   const runId = params.get('run');
   const agentId = runId ? params.get('agent') : null;
   return {
     view: views.has(view) ? view : 'workspace',
+    role: view === 'agents' ? (phaseRoles.has(role || '') ? role : 'spec') : null,
     projectId: params.get('project'),
     runId,
     agentId,
@@ -36,6 +48,7 @@ export function useWorkspaceRoute() {
     const previous = current.current;
     if (
       previous.view === next.view &&
+      previous.role === next.role &&
       previous.projectId === next.projectId &&
       previous.runId === next.runId &&
       previous.agentId === next.agentId &&
@@ -99,9 +112,12 @@ export function useWorkspaceRoute() {
   const navigate = useCallback(
     (change: Partial<WorkspaceRoute>, { replace = false, animate = true } = {}) => {
       const next = { ...current.current, ...change };
+      next.role =
+        next.view === 'agents' ? (phaseRoles.has(next.role || '') ? next.role : 'spec') : null;
       const params = new URLSearchParams();
       if (next.projectId) params.set('project', next.projectId);
       params.set('view', next.view);
+      if (next.role) params.set('role', next.role);
       if (next.runId) params.set('run', next.runId);
       if (next.runId && next.agentId) {
         params.set('agent', next.agentId);
