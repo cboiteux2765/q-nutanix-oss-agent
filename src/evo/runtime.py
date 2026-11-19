@@ -204,6 +204,8 @@ class Runtime:
                 "\n\nRead spec.context, then submit the structured draft to spec.publish. "
                 "Attach its returned JSON artifact ID to the Spec-to-Code handoff.\n"
                 + drafting_instructions(run["spec_prompt"]["content"])
+                + "\nSubmit the JSON draft object to spec.publish, then hand off its JSON artifact; "
+                  "do not substitute a final text response for publishing."
             )
         agent = self.store.put("agents", agent_id, {
             "run_id": run["id"], "parent_id": parent["id"] if parent else None,

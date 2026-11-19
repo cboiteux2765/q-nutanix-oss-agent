@@ -25,6 +25,11 @@ from .evolve.tasks import task_python, replay_dir
 from .providers import ModelProvider, ProviderError
 from .runtime import Runtime
 from . import speclab
+from .proactivity import ProactivityService
+from .scheduler import WorkflowScheduler
+from .supervisor import SupervisorService
+from .traces import router as trace_router
+from .workspace_api import router as workspace_router
 from .projects import project_view
 from .store import Store
 
@@ -89,6 +94,7 @@ class RunInput(MessageInput):
 
 class ProjectMessageInput(MessageInput):
     new_assignment: bool = False
+    run_id: str | None = None
 
 
 class MainAgentInput(BaseModel):
@@ -178,10 +184,18 @@ def _settings_view(store: Store) -> dict:
 def _recover_interrupted(store: Store) -> None:
     for status in ACTIVE:
         for agent in store.list("agents", status=status):
+            run = store.get("runs", agent["run_id"]) or {}
+            if (status == "queued" and run.get("queue_pending") and run.get("status") == "queued"
+                    and agent["id"] == run.get("root_agent_id")):
+                continue
             store.put("agents", agent["id"], {"status": "interrupted"})
             store.event(agent["run_id"], agent["id"], "agent.status", {"status": "interrupted"})
         for run in store.list("runs", status=status):
-            store.put("runs", run["id"], {"status": "interrupted"})
+            root = store.get("agents", run.get("root_agent_id", ""))
+            if (status == "queued" and run.get("queue_pending") and root
+                    and root.get("status") == "queued" and root.get("run_id") == run["id"]):
+                continue
+            store.put("runs", run["id"], {"status": "interrupted", "queue_pending": False})
             store.event(run["id"], run.get("root_agent_id"), "run.status", {"status": "interrupted"})
 
 
@@ -250,6 +264,12 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
             runtime.reconcile_reservations()  # in-flight requests from a previous process
             app.state.store = store
             app.state.runtime = runtime
+            app.state.workspace_locks = {}
+            app.state.scheduler = WorkflowScheduler(runtime)
+            runtime.scheduler = app.state.scheduler
+            app.state.supervisor = SupervisorService(runtime)
+            app.state.proactivity = ProactivityService(store, on_suggestion=app.state.supervisor.suggest)
+            runtime.proactivity = app.state.proactivity
             app.state.knowledge = runtime.knowledge
             app.state.skills = runtime.skills
             app.state.artifacts = runtime.artifacts
@@ -258,9 +278,13 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
             app.state.experiments.recover()
             app.state.speclab = speclab.SpecLabService(store, data_dir)
             app.state.speclab.recover()
+            await app.state.scheduler.initialize()
+            app.state.proactivity.start()
             try:
                 yield
             finally:
+                await app.state.proactivity.close()
+                await app.state.scheduler.close()
                 await app.state.speclab.close()
                 await app.state.experiments.close()
                 await app.state.runtime.close()
@@ -393,15 +417,18 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
     async def read_conversation(project: ProjectRecord, before: Annotated[int | None, Query(gt=0)] = None):
         runs = app.state.store.list("runs", project_id=project["id"])
         active = [run for run in runs if run["status"] in ACTIVE]
-        latest = (active or runs)[-1] if runs else None
+        supervisor = next((run for run in reversed(runs) if run.get("kind") == "supervisor"), None)
+        latest = supervisor or ((active or runs)[-1] if runs else None)
         messages = app.state.store.project_messages(project["id"], limit=101, before=before)
         return {"main_agent": project_view(project)["main_agent"],
                 "run_id": latest["id"] if latest else None,
+                 "supervisor_run_id": supervisor["id"] if supervisor else None,
                 "messages": messages[-100:], "has_more": len(messages) > 100}
 
     @app.post("/api/projects/{project_id}/messages")
     async def message_project(project: ProjectRecord, body: ProjectMessageInput):
-        return await app.state.runtime.message_project(project["id"], body.message, body.new_assignment)
+        return await app.state.supervisor.message(project["id"], body.message,
+                                                  new_assignment=body.new_assignment, run_id=body.run_id)
 
     @app.get("/api/projects/{project_id}/runs")
     async def list_runs(project: ProjectRecord):
@@ -429,7 +456,7 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
     @app.post("/api/runs", status_code=201)
     async def start_run(request: Request, body: RunInput):
         _project(request, body.project_id)
-        return await app.state.runtime.start_run(body.project_id, body.message)
+        return await app.state.scheduler.start(body.project_id, body.message)
 
     @app.get("/api/runs/{run_id}")
     async def read_run(run: RunRecord, events: bool = True):
@@ -444,15 +471,21 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
 
     @app.post("/api/runs/{run_id}/messages")
     async def steer_run(run: RunRecord, body: MessageInput):
-        return await app.state.runtime.steer(run["id"], body.message)
+        if run.get("kind") == "supervisor":
+            return await app.state.supervisor.message(run["project_id"], body.message)
+        return await app.state.scheduler.steer(run["project_id"], run["id"], body.message)
 
     @app.post("/api/runs/{run_id}/cancel")
     async def cancel_run(run: RunRecord):
-        return await app.state.runtime.cancel(run["id"])
+        if run.get("kind") == "supervisor":
+            return await app.state.runtime.cancel(run["id"])
+        return await app.state.scheduler.cancel(run["project_id"], run["id"])
 
     @app.post("/api/runs/{run_id}/resume")
     async def resume_run(run: RunRecord):
-        return await app.state.runtime.resume(run["id"])
+        if run.get("kind") == "supervisor":
+            return await app.state.runtime.resume(run["id"])
+        return await app.state.scheduler.resume(run["project_id"], run["id"])
 
     @app.post("/api/agents/{agent_id}/compact")
     async def compact_agent(agent: AgentRecord):
@@ -592,6 +625,8 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
 
     # Product Spec Agent toolchain (Spec Lab); must precede the frontend catch-all.
     app.include_router(speclab.router(ProjectRecord))
+    app.include_router(trace_router)
+    app.include_router(workspace_router(ProjectRecord))
 
     @app.get("/{path:path}", include_in_schema=False)
     async def frontend(path: str):
