@@ -14,6 +14,7 @@ class SupervisorService:
     def __init__(self, runtime):
         self.runtime = runtime
         self.store = runtime.store
+        self.suggestion_locks: dict[str, asyncio.Lock] = {}
         runtime.supervisor = self
 
     def get_supervisor(self, project_id):
@@ -190,7 +191,10 @@ class SupervisorService:
             "source_agent_id": event["agent_id"],
         }
 
-    async def start(self, project_id, message, *, source_event_id=None):
+    async def start(self, project_id, message, *, source_event_id=None, suggestion_id=None):
+        if suggestion_id:
+            run = await self.start_suggestion(project_id, suggestion_id, message, source_event_id=source_event_id)
+            return self._summary(run) | ({"routing": run["routing"]} if "routing" in run else {})
         source = {"kind": "supervisor"} | self._routing_source(project_id, source_event_id)
         if source_event_id:
             for run in self._workflow_runs(project_id):
@@ -198,12 +202,47 @@ class SupervisorService:
                     continue
                 if event := self._previous_route(project_id, run, source_event_id, message):
                     return self._summary(run) | {"routing": self.delivery(project_id, run["id"], event["id"])}
-        scheduler = self.runtime.scheduler
-        if scheduler:
-            run = await scheduler.start(project_id, message, source=source)
-        else:
-            run = await self.runtime.start_run(project_id, message, source=source)
+        run = await self._launch(project_id, message, source)
         return self._summary(run) | {"routing": self.delivery(project_id, run["id"], run["message_event_id"])}
+
+    async def start_suggestion(self, project_id, suggestion_id, message, *, source_event_id=None):
+        from .proactivity import SUGGESTIONS
+
+        activity = getattr(self.runtime, "proactivity", None)
+        if activity is None:
+            raise ValueError("GitHub activity is not configured.")
+        routing = self._routing_source(project_id, source_event_id)
+        async with self.suggestion_locks.setdefault(project_id, asyncio.Lock()):
+            suggestion = require(self.store, SUGGESTIONS, suggestion_id)
+            if (suggestion["project_id"] != project_id
+                    or suggestion["repository"] != activity.settings(project_id)["repository"]):
+                raise ValueError("Suggestion does not belong to this project's current repository.")
+            if run_id := suggestion.get("run_id"):
+                run = self._workflow(project_id, run_id)
+            else:
+                run = next((candidate for candidate in self._workflow_runs(project_id)
+                            if (candidate.get("source") or {}).get("suggestion_id") == suggestion_id), None)
+                if run is None:
+                    run = await self._launch(project_id, message, {
+                        "kind": "github-suggestion", "suggestion_id": suggestion_id,
+                        "repository": suggestion["repository"], "subject": suggestion["subject"],
+                        "source_urls": suggestion.get("source_urls", []),
+                        "event_ids": suggestion.get("event_ids", []), **routing,
+                    })
+                activity.associate_workflow(project_id, suggestion_id, run["id"])
+            event_id = run.get("message_event_id")
+            if not event_id:
+                event_id = next((event["id"] for event in self.store.events(
+                    run["id"], agent_id=run["root_agent_id"], limit=20,
+                ) if event["kind"] == "message" and event["data"].get("role") == "user"), None)
+            if event_id:
+                return run | {"routing": self.delivery(project_id, run["id"], event_id)}
+            return run
+
+    async def _launch(self, project_id, message, source):
+        if scheduler := self.runtime.scheduler:
+            return await scheduler.start(project_id, message, source=source)
+        return await self.runtime.start_run(project_id, message, source=source)
 
     async def send(self, project_id, run_id, message, *, source_event_id=None):
         run = self._workflow(project_id, run_id)

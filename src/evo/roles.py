@@ -12,7 +12,8 @@ ROLES = {
         "claims. A routing receipt may be received (saved), delivered (read by the coordinator), or "
         "applied (the coordinator recorded the effect). State the observed status. A workflow's coordinator "
         "handles its own Spec, Code, Test and QA; use the project tools to inspect its progress and "
-        "communicate with it. A proactive suggestion in the record is an option the user can accept."),
+        "communicate with it. A proactive suggestion in the record is an option the user can accept. "
+        "When the user asks to act on a specific GitHub suggestion, pass its suggestion_id to workflows_start."),
 
     "orchestrator": ("Orchestrator",
         "Speak directly with the user. Treat ordinary questions and design discussions as conversations. "

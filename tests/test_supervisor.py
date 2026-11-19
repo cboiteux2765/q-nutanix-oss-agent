@@ -234,3 +234,49 @@ def test_busy_supervisor_quick_response_reads_project_workflows(store, project, 
             await runtime.close()
 
     asyncio.run(scenario())
+
+
+def test_chat_and_dashboard_reuse_the_same_suggestion_workflow(store, project, fake_provider):
+    from evo.proactivity import SETTINGS, SUGGESTIONS, ProactivityService
+
+    project_id = project["id"]
+    repository = "example/project"
+    suggestion_id = "issue-42"
+    reference_url = "https://github.com/example/project/issues/42"
+    store.put(SETTINGS, project_id, {"repository": repository})
+    suggestion = store.put(SUGGESTIONS, suggestion_id, {
+        "project_id": project_id, "repository": repository, "subject": "thread:42",
+        "summary": "Triage issue 42.", "source_urls": [reference_url],
+        "event_ids": ["issue-opened"], "status": "pending",
+    })
+
+    async def scenario():
+        runtime = Runtime(store)
+        runtime.proactivity = ProactivityService(store)
+        supervisor = SupervisorService(runtime)
+        try:
+            await supervisor.suggest(project_id, suggestion)
+            fake_provider.script = [tools(("workflows_start", {
+                "message": "Triage issue 42.", "suggestion_id": suggestion_id,
+            }))]
+            chat = await supervisor.message(project_id, "Start the suggested issue 42 triage.")
+            await settle(runtime)
+            run, = supervisor.list_workflows(project_id)
+            assert run["source"]["suggestion_id"] == suggestion_id
+            assert run["source"]["source_event_id"] == chat["message_event_id"]
+            assert run["source"]["source_urls"] == [reference_url]
+            assert store.get(SUGGESTIONS, suggestion_id)["run_id"] == run["id"]
+
+            # Recover an existing run if the process stopped before saving the association.
+            store.put(SUGGESTIONS, suggestion_id, {"run_id": None, "status": "pending"})
+            clicks = await asyncio.gather(*[
+                supervisor.start_suggestion(project_id, suggestion_id, "Triage issue 42.")
+                for _ in range(2)
+            ])
+            assert {click["id"] for click in clicks} == {run["id"]}
+            assert len(supervisor.list_workflows(project_id)) == 1
+            assert store.get(SUGGESTIONS, suggestion_id)["status"] == "started"
+        finally:
+            await runtime.close()
+
+    asyncio.run(scenario())

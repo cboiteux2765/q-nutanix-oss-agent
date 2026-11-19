@@ -446,10 +446,10 @@ class _Scope:
         """checks an instruction receipt for received, delivered or applied status and evidence IDs."""
         return self._supervisor().delivery(self.project_id, run_id, message_event_id)
 
-    async def workflows_start(self, message: str) -> dict:
-        """starts one independent workflow for a user-authorized new assignment, preserving the full request."""
+    async def workflows_start(self, message: str, suggestion_id: str | None = None) -> dict:
+        """starts an authorized new assignment; include suggestion_id if the user accepts a GitHub suggestion."""
         return await self._supervisor().start(
-            self.project_id, message, source_event_id=self._source_event(),
+            self.project_id, message, source_event_id=self._source_event(), suggestion_id=suggestion_id,
         )
 
     async def workflows_send(self, run_id: str, message: str) -> dict:
