@@ -163,7 +163,7 @@ class Workspace:
                 'version': run['candidate_version'], 'text': text.strip(), 'reviewer': reviewer.strip(), 'at': now()})
             self.save()
 
-    def decision(self, run_id, action, reviewer):
+    def decision(self, run_id, action, reviewer, *, save=True):
         if action not in ('promote', 'reject') or not reviewer.strip():
             raise ValueError('A named reviewer and promote/reject decision are required.')
         with self.lock:
@@ -186,9 +186,10 @@ class Workspace:
                 version['status'] = 'rejected'
                 run['status'] = 'rejected'
             self.data['audit'].append({'action': action, 'run_id': run_id, 'reviewer': reviewer, 'at': now()})
-            self.save()
+            if save:
+                self.save()
 
-    def rollback(self, version_id, reviewer):
+    def rollback(self, version_id, reviewer, *, save=True):
         with self.lock:
             version = next(v for v in self.data['versions'] if v['id'] == version_id)
             if not reviewer.strip() or version['status'] != 'retired':
@@ -199,7 +200,8 @@ class Workspace:
             version['status'] = 'active'
             self.data['active_version'] = version_id
             self.data['audit'].append({'action': 'rollback', 'version': version_id, 'reviewer': reviewer, 'at': now()})
-            self.save()
+            if save:
+                self.save()
 
 
 def validate_scenarios(value, sources):

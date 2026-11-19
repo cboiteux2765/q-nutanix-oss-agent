@@ -30,12 +30,13 @@ from agent.backends import (LocalRLM, Meter, Recording, SchemaBackend, aicommons
                             aicommons_usage, budgeted, evo_chat, ollama_chat, ollama_models, openai_compatible_chat)
 from agent.generate import prepare, write_artifacts
 from agent.governance import GATES, check_gates, compare_replay, seal, verify_ledger
-from agent.learning import DemoBackend, Orchestrator, PrimeBackend, Workspace
+from agent.learning import DemoBackend, Orchestrator, PrimeBackend, Workspace, digest
 from evals.cases import CASES, MUST_STAY_BLOCKED
-from evals.run_evals import CASE_BY_ID, HARNESSES, run_case, summarize
+from evals.run_evals import CASE_BY_ID, HARNESSES, grade, run_case, summarize
 
 from .common import Conflict, NotFound
 from .config import get_api_key, get_settings
+from .specification import activate_spec_prompt, drafting_messages, spec_prompt_snapshot, validate_draft
 from .store import utc_now
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,10 +46,133 @@ BACKENDS = ("recorded", "fixture", "aicommons", "ollama", "evo")
 AICOMMONS_DEFAULT = "claude-v5.5-haiku"
 JOB_TOKEN_CAP = 300_000  # hard cap per Spec Lab job on hosted AI Commons models
 OFFLINE = ("recorded", "fixture")
+WORKFLOW_HARNESS = "workflow"
+LAB_HARNESSES = {
+    WORKFLOW_HARNESS: "Workflow Spec drafting contract and validator with pinned evidence",
+    **HARNESSES,
+}
 
 
 class LocalPrimeBackend(PrimeBackend):
     mode = "prime-rlm-local"
+
+
+class LabWorkspace(Workspace):
+    """Keep the project workspace and its published prompt in the same database."""
+
+    def __init__(self, root: Path, store, project_id: str):
+        super().__init__(root)
+        self.store, self.project_id = store, project_id
+        saved = store.get("spec_workspaces", project_id)
+        self.loaded_legacy = not saved and (root / "workspace.json").is_file()
+        if saved:
+            self.data = saved["workspace"]
+
+    def save(self):
+        self.store.put("spec_workspaces", self.project_id, {"workspace": self.data})
+
+    def _activate(self, tx, version: dict, reviewer: str, expected: dict):
+        links = self.data.setdefault("prompt_links", {})
+        prompt_id = links.get(version["id"]) or f'spec-lab:{self.project_id}:{version["id"]}'
+        activate_spec_prompt(self.store, tx, self.project_id, prompt_id, version["prompt"],
+                             expected=expected, lab_version=version["id"], reviewer=reviewer)
+        links[version["id"]] = prompt_id
+        tx.put("spec_workspaces", self.project_id, {"workspace": self.data})
+
+    def commit_decision(self, previous: dict, expected: dict, reviewer: str, *,
+                        publish: bool, rehearsal: bool | None = None):
+        seal(self)
+        try:
+            if publish or rehearsal is False:
+                self.data.pop("rehearsal", None)
+            elif rehearsal:
+                self.data["rehearsal"] = {"version": self.data["active_version"], "registry": expected}
+            if publish:
+                version = next(v for v in self.data["versions"] if v["id"] == self.data["active_version"])
+                self.store.transact(lambda tx: self._activate(tx, version, reviewer, expected))
+            else:
+                self.save()
+        except Exception:
+            self.data = previous
+            raise
+
+    def sync_prompt(self, *, reset_rehearsal: bool = False) -> dict:
+        """Project prompt activations via the general UI are also visible in Spec Lab."""
+        with self.lock:
+            current = spec_prompt_snapshot(self.store, self.project_id)
+            versions = self.data["versions"]
+            active = next(v for v in versions if v["id"] == self.data["active_version"])
+            if self.loaded_legacy:
+                self.loaded_legacy = False
+                if active["id"] != "v1" and verify_ledger(self.data["audit"]):
+                    self.data["rehearsal"] = {"version": active["id"], "registry": current}
+                self.save()
+            rehearsal = self.data.get("rehearsal")
+            if rehearsal and not reset_rehearsal and rehearsal["registry"] == current:
+                return current
+            self.data.pop("rehearsal", None)
+            links = self.data.get("prompt_links", {})
+            if links.get(active["id"]) == current["id"] and active["prompt"] == current["content"]:
+                if rehearsal:
+                    self.save()
+                return current
+            version = next((v for v in versions if links.get(v["id"]) == current["id"]
+                            and v["prompt"] == current["content"] and v["status"] in {"active", "retired"}), None)
+            if version is None:
+                version = {
+                    "id": f"v{len(versions) + 1}", "parent": active["id"], "prompt": current["content"],
+                    "hash": current["hash"], "created_at": utc_now(),
+                }
+                versions.append(version)
+            self.data.setdefault("prompt_links", {})[version["id"]] = current["id"]
+            active["status"] = "retired"
+            version["status"] = "active"
+            self.data["active_version"] = version["id"]
+            self.save()
+            return current
+
+
+def run_workflow_case(case: dict, chat, guidance: str) -> dict:
+    """Evaluate production drafting and validation with a frozen evidence input."""
+    context = prepare(case["evidence"], case["repo"])
+    meter = Meter(chat) if chat else None
+    started = time.monotonic()
+    messages = drafting_messages(context, guidance)
+    draft, error, validation = None, None, None
+    for _ in range(3 if meter else 1):
+        try:
+            text = meter.chat(messages, role="spec") if meter else json.dumps({
+                **json.loads((ROOT / "examples/product-replay.json").read_text(encoding="utf-8"))[-1],
+                "assumptions": [],
+            })
+            cleaned = text.strip()
+            if cleaned.startswith("```") and cleaned.endswith("```"):
+                cleaned = cleaned.split("\n", 1)[-1][:-3].strip()
+            candidate = json.loads(cleaned)
+            validation = validate_draft(candidate, context)
+            if validation["valid"]:
+                draft, error = candidate, None
+                break
+            error = " ".join(validation["errors"])
+        except (ValueError, TypeError) as exc:
+            error = str(exc)
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            break
+        messages.extend([
+            {"role": "assistant", "content": text},
+            {"role": "user", "content": f"Validation failed. {error} Return the corrected JSON draft."},
+        ])
+    return {
+        "case": case["id"], "harness": WORKFLOW_HARNESS,
+        "model": meter.label if meter else "scripted fixture", "mode": "live" if meter else "fixture",
+        **grade(case, draft), "draft": draft, "validation": validation,
+        "exit_status": ("BLOCKED" if validation["blockers"] else "DRAFT_READY") if draft else "FAILED",
+        "error": error,
+        "elapsed_seconds": round(time.monotonic() - started, 1),
+        **(meter.stats() if meter else {"model_calls": 0, "input_tokens": 0, "output_tokens": 0}),
+        "tool_calls": [{"role": "spec", "tool": "spec.validate", "query": case["id"]}],
+    }
 
 
 class SpecLabService:
@@ -56,7 +180,7 @@ class SpecLabService:
         self.store, self.root = store, Path(data_dir) / "speclab"
         self.root.mkdir(parents=True, exist_ok=True)
         self.tasks: dict[str, asyncio.Task] = {}
-        self.workspaces: dict[str, Workspace] = {}
+        self.workspaces: dict[str, LabWorkspace] = {}
         self.lock = threading.RLock()
 
     # ---------------------------------------------------------------- state
@@ -65,8 +189,10 @@ class SpecLabService:
             if job["status"] not in FINAL:
                 self.store.put("spec_jobs", job["id"], {**job, "status": "interrupted",
                                "error": "EVO stopped while this job was running.", "finished_at": utc_now()})
-        for path in self.root.glob("*/learning/workspace.json"):
-            ws = self.workspace(path.parent.parent.name)
+        projects = {record["id"] for record in self.store.list("spec_workspaces")}
+        projects.update(path.parent.parent.name for path in self.root.glob("*/learning/workspace.json"))
+        for project_id in projects:
+            ws = self.workspace(project_id)
             with ws.lock:
                 for run in ws.data["runs"]:
                     if run["status"] == "running":
@@ -82,11 +208,13 @@ class SpecLabService:
             except BaseException:
                 pass
 
-    def workspace(self, project_id: str) -> Workspace:
+    def workspace(self, project_id: str) -> LabWorkspace:
         with self.lock:
             if project_id not in self.workspaces:
-                self.workspaces[project_id] = Workspace(self.root / project_id / "learning")
-            return self.workspaces[project_id]
+                self.workspaces[project_id] = LabWorkspace(self.root / project_id / "learning", self.store, project_id)
+            ws = self.workspaces[project_id]
+        ws.sync_prompt()
+        return ws
 
     def jobs(self, project_id: str) -> list[dict]:
         return self.store.list("spec_jobs", project_id=project_id)
@@ -105,7 +233,7 @@ class SpecLabService:
         return {
             "cases": [{"id": c["id"], "repo": c["repo"], "why": c["why"], "title": c["evidence"]["input"]["title"],
                        "rubric": c["rubric"], "must_stay_blocked": c["id"] in MUST_STAY_BLOCKED} for c in CASES],
-            "harnesses": [{"id": k, "description": v} for k, v in HARNESSES.items()],
+            "harnesses": [{"id": k, "description": v} for k, v in LAB_HARNESSES.items()],
             "backends": {"recorded": self._recording_view(project_id), "aicommons": self._aicommons_view(),
                          "ollama": ollama_models(), "evo": {"model": settings.get("model"),
                          "configured": bool(get_api_key(settings)) or "127.0.0.1" in settings.get("base_url", "")
@@ -114,6 +242,8 @@ class SpecLabService:
             "recorded": self.recorded_list(),
             "governance": {
                 "active_version": snapshot["active_version"], "versions": snapshot["versions"][::-1],
+                "active_prompt_id": spec_prompt_snapshot(self.store, project_id)["id"],
+                "rehearsal_version": (snapshot.get("rehearsal") or {}).get("version"),
                 "cycles": [{k: r.get(k) for k in ("id", "title", "status", "mode", "created_at", "candidate_version",
                                                   "baseline_version", "error", "case_id")}
                            | {"critic": (r.get("evaluation") or {}).get("eligible"),
@@ -152,7 +282,7 @@ class SpecLabService:
         guidance = self._active_prompt(project_id)
         return {"model": rec.data.get("model"), "recorded_at": rec.data.get("recorded_at"),
                 "demo_cycle": (rec.data.get("demo_cycle") or {}).get("case"),
-                "coverage": {h: [c["id"] for c in CASES if rec.has(c["id"], h, guidance)] for h in HARNESSES}}
+                "coverage": {h: [c["id"] for c in CASES if rec.has(c["id"], h, guidance)] for h in LAB_HARNESSES}}
 
     def _aicommons_view(self) -> dict | None:
         """Configured UCSB AI Commons models and quota (both unmetered; cached for a minute)."""
@@ -259,7 +389,7 @@ class SpecLabService:
 
     def start_spec(self, project_id: str, harness: str, case_id: str | None, backend: str, model: str = "",
                    evidence: dict | None = None) -> dict:
-        if harness not in HARNESSES:
+        if harness not in LAB_HARNESSES:
             raise ValueError("Unknown harness.")
         if evidence is not None:
             if backend in OFFLINE:
@@ -277,7 +407,7 @@ class SpecLabService:
 
         def work(progress):
             progress(f"Running {harness} on {case['id']}")
-            row = run_case(case, harness, chat, guidance, self._mode(backend), rec)
+            row = self._run_case(case, harness, chat, guidance, backend, rec)
             if row.get("draft"):
                 directory = write_artifacts(case["evidence"], prepare(case["evidence"], case["repo"]), row["draft"],
                                             {"mode": backend, "agent": harness, "workflow": "speclab-1"},
@@ -292,7 +422,7 @@ class SpecLabService:
 
     def start_benchmark(self, project_id: str, harnesses: list[str], case_ids: list[str], backend: str,
                         model: str = "") -> dict:
-        if not harnesses or any(h not in HARNESSES for h in harnesses):
+        if not harnesses or any(h not in LAB_HARNESSES for h in harnesses):
             raise ValueError("Choose at least one known harness.")
         if not case_ids or any(c not in CASE_BY_ID for c in case_ids):
             raise ValueError("Choose at least one benchmark case.")
@@ -305,7 +435,7 @@ class SpecLabService:
             for case_id in case_ids:
                 for harness in harnesses:
                     progress(f"{harness} · {case_id}")
-                    row = run_case(CASE_BY_ID[case_id], harness, chat, guidance, self._mode(backend), rec)
+                    row = self._run_case(CASE_BY_ID[case_id], harness, chat, guidance, backend, rec)
                     rows.append(row)
                     progress(f"{harness} · {case_id}: {row['exit_status']} score {row['score']}")
             if backend not in OFFLINE:  # keep live comparisons with the committed evidence
@@ -321,8 +451,15 @@ class SpecLabService:
 
     # ------------------------------------------------------------ governance
     def _active_prompt(self, project_id: str) -> str:
-        ws = self.workspace(project_id)
-        return next(v["prompt"] for v in ws.data["versions"] if v["id"] == ws.data["active_version"])
+        return self.workspace(project_id).sync_prompt()["content"]
+
+    def _run_case(self, case, harness, chat, guidance, backend, rec):
+        if harness == WORKFLOW_HARNESS:
+            if rec:
+                chat = rec.replay(case["id"], harness, guidance)
+            row = run_workflow_case(case, chat, guidance)
+            return row | {"mode": self._mode(backend)}
+        return run_case(case, harness, chat, guidance, self._mode(backend), rec)
 
     def _audit(self, ws: Workspace, entry: dict) -> None:
         with ws.lock:
@@ -349,9 +486,12 @@ class SpecLabService:
             if rec:
                 backend_impl.mode = f"recorded-{harness}"
         orchestrator = Orchestrator(ws, backend_impl)
-        run_id = orchestrator.create(case["evidence"], case["repo"])
         with ws.lock:
-            ws.run(run_id)["case_id"] = case_id
+            current = ws.sync_prompt(reset_rehearsal=True)
+            if current["content"] != guidance:
+                raise Conflict("The active Spec prompt changed. Restart the evolution cycle.")
+            run_id = orchestrator.create(case["evidence"], case["repo"])
+            ws.run(run_id).update(case_id=case_id, registry_baseline=current)
             ws.save()
 
         def work(progress):
@@ -386,17 +526,19 @@ class SpecLabService:
         versions = {v["id"]: v for v in ws.data["versions"]}
         return {"run": run, "candidate": versions.get(run.get("candidate_version")),
                 "baseline": versions.get(run.get("baseline_version")),
+                "registry_activated": bool(run.get("registry_activated")),
                 "gates": check_gates(ws, cycle_id, reviewer) if run["status"] != "running" else []}
 
     def start_replay(self, project_id: str, cycle_id: str, backend: str, model: str = "",
-                     harness: str = "mini") -> dict:
+                     harness: str | None = None) -> dict:
         """Gate 5: replay the frozen benchmark with the baseline and the candidate prompt."""
         ws = self.workspace(project_id)
         detail = self.cycle(project_id, cycle_id)
         run, candidate, baseline = detail["run"], detail["candidate"], detail["baseline"]
         if run["status"] != "needs_review" or not candidate:
             raise Conflict("Only a finished cycle that awaits a decision can be replayed.")
-        if harness not in HARNESSES:
+        harness = harness or ("mini" if backend == "recorded" else WORKFLOW_HARNESS)
+        if harness not in LAB_HARNESSES:
             raise ValueError("Unknown harness.")
         if backend == "fixture":
             case_ids = ["bundled-fixture"]
@@ -420,12 +562,24 @@ class SpecLabService:
                 arms[arm] = []
                 for case_id in case_ids:
                     progress(f"{arm} ({version['id']}) · {case_id}")
-                    arms[arm].append(run_case(CASE_BY_ID[case_id], harness, chat, version["prompt"],
-                                              self._mode(backend), rec))
+                    arms[arm].append(self._run_case(CASE_BY_ID[case_id], harness, chat, version["prompt"], backend, rec))
             replay = {**compare_replay(arms["baseline"], arms["candidate"], MUST_STAY_BLOCKED),
                       "status": "completed", "harness": harness, "recorded": backend in OFFLINE,
                       "candidate_version": candidate["id"], "baseline_version": baseline["id"],
                       "model": self._label(backend, chat, rec), "at": utc_now()}
+            if harness == WORKFLOW_HARNESS:
+                for row in arms["candidate"]:
+                    if row["case"] in MUST_STAY_BLOCKED and (row["validation"] or {}).get("ready_for_code"):
+                        if row["case"] not in replay["unblocked"] and row["case"] not in replay["regressions"]:
+                            replay["unblocked"].append(row["case"])
+            replay["baseline_prompt_hash"] = digest(baseline["prompt"])
+            replay["candidate_prompt_hash"] = digest(candidate["prompt"])
+            replay["production_eligible"] = (
+                backend not in OFFLINE and harness == WORKFLOW_HARNESS
+                and set(case_ids) == set(CASE_BY_ID)
+                and all(row["completed"] for rows in arms.values() for row in rows)
+                and not (replay["regressions"] or replay["unblocked"])
+            )
             with ws.lock:
                 ws.run(cycle_id)["benchmark_replay"] = replay
                 ws.save()
@@ -447,25 +601,51 @@ class SpecLabService:
     def decide(self, project_id: str, cycle_id: str, action: str, reviewer: str) -> dict:
         self.cycle(project_id, cycle_id)  # 404 for unknown cycles
         ws = self.workspace(project_id)
-        if action == "promote":
-            failed = [g for g in check_gates(ws, cycle_id, reviewer) if not g["passed"]]
-            if failed:
-                raise Conflict("Promotion blocked by governance: " +
-                               "; ".join(f"{g['name']}: {g['detail']}" for g in failed))
-        ws.decision(cycle_id, action, reviewer)
-        seal(ws)
-        ws.save()
+        with ws.lock:
+            expected = ws.sync_prompt()
+            publish = False
+            if action == "promote":
+                failed = [g for g in check_gates(ws, cycle_id, reviewer) if not g["passed"]]
+                if failed:
+                    raise Conflict("Promotion blocked by governance: " +
+                                   "; ".join(f"{g['name']}: {g['detail']}" for g in failed))
+                run = ws.run(cycle_id)
+                replay = run["benchmark_replay"]
+                versions = {v["id"]: v for v in ws.data["versions"]}
+                baseline = versions[run["baseline_version"]]
+                candidate = versions[run["candidate_version"]]
+                publish = bool(
+                    replay.get("production_eligible")
+                    and run.get("registry_baseline") == expected
+                    and replay.get("baseline_prompt_hash") == digest(baseline["prompt"])
+                    and replay.get("candidate_prompt_hash") == digest(candidate["prompt"])
+                )
+            previous = ws.snapshot()
+            ws.decision(cycle_id, action, reviewer, save=False)
+            if action == "promote":
+                ws.run(cycle_id).update(registry_activated=publish, promotion_scope="production" if publish else "rehearsal")
+                ws.data["audit"][-1]["scope"] = "production" if publish else "rehearsal"
+            ws.commit_decision(previous, expected, reviewer.strip(), publish=publish,
+                               rehearsal=not publish if action == "promote" else None)
         return self.cycle(project_id, cycle_id, reviewer)
 
     def rollback(self, project_id: str, version_id: str, reviewer: str) -> dict:
         ws = self.workspace(project_id)
-        try:
-            ws.rollback(version_id, reviewer)
-        except StopIteration:
-            raise NotFound("Prompt version not found.") from None
-        seal(ws)
-        ws.save()
-        return self.overview(project_id)["governance"]
+        with ws.lock:
+            expected = ws.sync_prompt()
+            previous = ws.snapshot()
+            try:
+                ws.rollback(version_id, reviewer, save=False)
+            except StopIteration:
+                raise NotFound("Prompt version not found.") from None
+            target = next(v for v in ws.data["versions"] if v["id"] == version_id)
+            links = ws.data.get("prompt_links", {})
+            matches_active = links.get(version_id) == expected["id"] and target["prompt"] == expected["content"]
+            publish = not matches_active and (version_id == "v1" or version_id in links)
+            ws.data["audit"][-1]["scope"] = "production" if publish else "rehearsal"
+            ws.commit_decision(previous, expected, reviewer.strip(), publish=publish,
+                               rehearsal=not (publish or matches_active))
+        return self.overview(project_id)["governance"] | {"registry_activated": publish}
 
 
 # ------------------------------------------------------------------ HTTP
@@ -494,7 +674,7 @@ class CycleInput(BaseModel):
 class ReplayInput(BaseModel):
     backend: str = "recorded"
     model: str = ""
-    harness: str = "mini"
+    harness: str | None = None
 
 
 class FeedbackInput(BaseModel):

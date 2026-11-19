@@ -1,4 +1,5 @@
 """Spec Lab API: spec runs, harness comparison and governed evolution (recorded mode, no model)."""
+import json
 import time
 
 import pytest
@@ -6,7 +7,11 @@ from fastapi.testclient import TestClient
 
 from agent.governance import check_gates, lessons, verify_ledger
 from agent.learning import BASE_PROMPT
+from evals.cases import MUST_STAY_BLOCKED
+from evals.run_evals import CASE_BY_ID
 from evo.server import create_app
+from evo.speclab import run_workflow_case
+from evo.specification import drafting_messages, spec_prompt_snapshot
 
 from .conftest import TEST_SETTINGS
 
@@ -37,13 +42,13 @@ def wait(client, base, job):
 def test_overview_lists_cases_harnesses_and_gates(client, base):
     data = client.get(base).json()
     assert {c["id"] for c in data["cases"]} >= {"bundled-fixture", "prompt-injection", "vague-issue"}
-    assert {h["id"] for h in data["harnesses"]} == {"mini", "prime-rlm", "prime-schema"}
+    assert {h["id"] for h in data["harnesses"]} == {"workflow", "mini", "prime-rlm", "prime-schema"}
     assert [g["id"] for g in data["governance"]["gates"]][:2] == ["scope", "lint"]
     assert data["governance"]["active_version"] == "v1"
     assert client.get("/api/projects/nope/spec").status_code == 404
 
 
-@pytest.mark.parametrize("harness", ["mini", "prime-rlm"])
+@pytest.mark.parametrize("harness", ["workflow", "mini", "prime-rlm"])
 def test_recorded_spec_run_produces_graded_spec(client, base, harness):
     job = client.post(f"{base}/runs", json={"harness": harness, "case_id": "bundled-fixture", "backend": "fixture"})
     assert job.status_code == 201
@@ -70,6 +75,9 @@ def test_benchmark_compares_harnesses(client, base):
 
 
 def test_governed_cycle_requires_replay_then_promotes_and_rolls_back(client, base):
+    project_id = client.get("/api/projects").json()[0]["id"]
+    store = client.app.state.store
+    baseline = spec_prompt_snapshot(store, project_id)
     job = wait(client, base, client.post(f"{base}/cycles", json={"backend": "fixture"}).json())
     assert job["status"] == "completed", job.get("error")
     cycle = job["cycle_id"]
@@ -79,17 +87,89 @@ def test_governed_cycle_requires_replay_then_promotes_and_rolls_back(client, bas
 
     blocked = client.post(f"{base}/cycles/{cycle}/decision", json={"action": "promote", "reviewer": "PM"})
     assert blocked.status_code == 409 and "Frozen benchmark replay" in blocked.json()["detail"]
+    assert spec_prompt_snapshot(store, project_id) == baseline
 
     replay = wait(client, base, client.post(f"{base}/cycles/{cycle}/replay", json={"backend": "fixture"}).json())
     assert replay["status"] == "completed" and replay["replay"]["regressions"] == []
+    assert replay["replay"]["harness"] == "workflow"
     promoted = client.post(f"{base}/cycles/{cycle}/decision", json={"action": "promote", "reviewer": "PM"})
     assert promoted.status_code == 200, promoted.json()
+    assert promoted.json()["registry_activated"] is False
+    assert promoted.json()["run"]["promotion_scope"] == "rehearsal"
     governance = client.get(base).json()["governance"]
     assert governance["active_version"] == "v2" and governance["ledger_ok"]
     assert [a["action"] for a in governance["audit"]][:3] == ["promote", "benchmark_replay", "proposal"]
+    assert governance["rehearsal_version"] == "v2"
+    assert spec_prompt_snapshot(store, project_id) == baseline
+    # Load the project again from the persisted registry and workspace state.
+    client.app.state.speclab.workspaces.pop(project_id)
+    assert client.get(base).json()["governance"]["rehearsal_version"] == "v2"
 
     rolled = client.post(f"{base}/versions/v1/rollback", json={"reviewer": "PM"})
     assert rolled.status_code == 200 and rolled.json()["active_version"] == "v1"
+    assert spec_prompt_snapshot(store, project_id) == baseline
+    assert rolled.json()["rehearsal_version"] is None
+
+
+def test_paired_live_workflow_replay_updates_production_registry(client, base, monkeypatch):
+    service = client.app.state.speclab
+    store = client.app.state.store
+    project_id = client.get("/api/projects").json()[0]["id"]
+    baseline = spec_prompt_snapshot(store, project_id)
+    job = wait(client, base, client.post(f"{base}/cycles", json={"backend": "fixture"}).json())
+    cycle = job["cycle_id"]
+    bundled = run_workflow_case(CASE_BY_ID["bundled-fixture"], None, BASE_PROMPT)["draft"]
+    blocked_titles = {CASE_BY_ID[case]["evidence"]["input"]["title"] for case in MUST_STAY_BLOCKED}
+    calls = []
+
+    def chat(messages, fmt=None, role=None):
+        context = json.loads(messages[1]["content"])
+        questions = ["Authoritative behavior needs a product decision."] if context["title"] in blocked_titles else []
+        calls.append((context["title"], messages[0]["content"]))
+        return json.dumps(bundled | {"unresolved_questions": questions}), {}
+
+    chat.label = "test model"
+    monkeypatch.setattr(service, "_chat", lambda *args: chat if args[0] == "evo" else None)
+    replay = wait(client, base, client.post(f"{base}/cycles/{cycle}/replay", json={"backend": "evo"}).json())
+    assert replay["status"] == "completed", replay.get("error")
+    assert replay["replay"]["production_eligible"]
+    assert len(calls) == 2 * len(CASE_BY_ID)
+    assert calls[0][1] != calls[len(CASE_BY_ID)][1]
+
+    promoted = client.post(f"{base}/cycles/{cycle}/decision", json={"action": "promote", "reviewer": "PM"}).json()
+    assert promoted["registry_activated"]
+    active = spec_prompt_snapshot(store, project_id)
+    assert active["content"] == promoted["candidate"]["prompt"]
+    assert store.get("prompts", active["id"])["approved_by"] == "PM"
+
+    rolled = client.post(f"{base}/versions/v1/rollback", json={"reviewer": "PM"}).json()
+    assert rolled["registry_activated"]
+    assert spec_prompt_snapshot(store, project_id)["content"] == baseline["content"]
+    assert store.get("prompts", active["id"])["status"] == "superseded"
+
+
+def test_workflow_harness_uses_shared_drafting_messages_and_validates_repairs():
+    from agent.generate import prepare
+
+    case = CASE_BY_ID["bundled-fixture"]
+    approved_guidance = "Record the outcome in observable terms."
+    expected_messages = drafting_messages(prepare(case["evidence"], case["repo"]), approved_guidance)
+    draft = run_workflow_case(case, None, approved_guidance)["draft"]
+    draft["unresolved_questions"] = ["What should callers see for whitespace-only input?"]
+    calls = []
+
+    def chat(messages, fmt=None, role=None):
+        assert role == "spec"
+        assert messages[:2] == expected_messages
+        calls.append(list(messages))
+        return (json.dumps(draft) if len(calls) > 1 else "{}"), {}
+
+    result = run_workflow_case(case, chat, approved_guidance)
+    assert result["model_calls"] == 2
+    assert "missing field" in calls[1][-1]["content"]
+    assert result["validation"]["status"] == "BLOCKED"
+    assert result["validation"]["ready_for_code"] is False
+    assert result["draft"] == draft
 
 
 def test_policy_lint_and_ledger_tampering(client, base):
