@@ -17,7 +17,7 @@ from .evolution import SkillLibrary
 from .knowledge import KnowledgeBase
 from .model_defaults import compaction_threshold, runtime_recommendations
 from .projects import main_agent, conversation_context
-from .providers import ModelProvider, ProviderError, require_provider_key
+from .providers import RAW_ITEMS, ModelProvider, ProviderError, require_provider_key
 from .repl import PythonREPL
 from .roles import PYTHON_TOOL, ROLES, role_prompt
 from .store import require
@@ -79,6 +79,9 @@ class Runtime:
         self.workflow.test_stage = test_stage
         self.broker = ToolBroker(self)
         self.responder = Responder(self)
+        self.scheduler = None
+        self.supervisor = None
+        self.supervisor_turns: dict[str, str] = {}
         self.manifest = TOOL_MANIFEST
         self.tasks = {}
         self.repls = {}
@@ -87,7 +90,7 @@ class Runtime:
         self.reserved: dict[str, Reservation] = {}  # run_id -> worst case of model calls in flight
         self.input_bounds = ConversationBound()
         self.maintenance = {}
-        self.cancelling = set()
+        self.cancelling: dict[str, str] = {}
         self.closing = False
         self.project_locks = {}
         # Root agents that owe the user a reply: agent id -> (user message event id, accepted at).
@@ -147,29 +150,46 @@ class Runtime:
             except Exception:  # a broken listener must never affect the run
                 pass
 
+    def _agent_manifest(self, role):
+        from .tools import tool_available
+
+        return {name: tool for name, tool in self.manifest.items() if tool_available(role, name)}
+
     def _new_agent(self, run, role, task, parent=None):
         agent_id = uuid4().hex
         name = ROLES[role][0]
-        main = parent is None and role == "orchestrator"
+        main = parent is None and role in {"orchestrator", "supervisor"}
         override = (run.get("prompt_overrides") or {}).get(role)
         prompt_id = run.get("prompt_ids", {}).get(role)
         prompt = self.store.get("prompts", prompt_id) if prompt_id and override is None else None
-        instructions = role_prompt(role, self.manifest)
+        instructions = role_prompt(role, self._agent_manifest(role))
         project = require(self.store, "projects", run["project_id"])
         profile = run.get("main_agent_snapshot") or main_agent(project)
         if main:
-            name = profile["name"]
-            instructions += f"\n\nYour name is {name}. You are this repository's dedicated main agent."
+            name = profile["name"] if role == "supervisor" or self.supervisor is None else "Workflow Coordinator"
+            instructions += f"\n\nYour name is {name}."
             if profile.get("instructions"):
                 instructions += f"\nRepository owner's standing instructions:\n{profile['instructions']}"
-            instructions += conversation_context(self.store, project["id"])
+            if role == "orchestrator":
+                if self.supervisor is None:
+                    instructions += ("\nYou are this repository's dedicated main agent."
+                                     + conversation_context(self.store, project["id"]))
+                else:
+                    instructions += (
+                        "\nYou coordinate this independent workflow. Your user-facing messages are attributed to "
+                        "this workflow in the project conversation. Treat its original assignment and forwarded "
+                        "user instructions as your scope. Use chat.applied with each forwarded message ID once "
+                        "the requested change is implemented. Cite original workflow events when they show the effect."
+                    )
         if project.get("description"):
             instructions += f"\nRepository context: {project['description']}"
         instructions += (
             f"\n\nProject {project['name']} ({project['id']}). Run {run['id']}. "
-            f"Agent {agent_id}. Run branch {run['branch']}. "
-            "Repository and shell paths are relative to your assigned worktree."
+            f"Agent {agent_id}."
         )
+        if role != "supervisor":
+            instructions += (f" Run branch {run['branch']}. "
+                             "Repository and shell paths are relative to your assigned worktree.")
         if parent:
             instructions += f" Your assigning agent is {parent['name']} ({parent['id']})."
         if prompt:
@@ -177,6 +197,14 @@ class Runtime:
         elif override:
             # An evaluation candidate, formatted exactly as an approved version would be.
             instructions += f"\n\nProject-approved role instructions (version {override['version']}):\n{override['content']}"
+        if role == "spec" and run.get("spec_schema_version"):
+            from .specification import drafting_instructions
+
+            instructions += (
+                "\n\nRead spec.context, then submit the structured draft to spec.publish. "
+                "Attach its returned JSON artifact ID to the Spec-to-Code handoff.\n"
+                + drafting_instructions(run["spec_prompt"]["content"])
+            )
         agent = self.store.put("agents", agent_id, {
             "run_id": run["id"], "parent_id": parent["id"] if parent else None,
             "role": role, "name": name, "status": "queued", "task": task, "result": None,
@@ -192,12 +220,14 @@ class Runtime:
         })
         return agent
 
-    def _enqueue(self, agent, text, *, sender_id=None, visible=False, role="user", user=False, responding=False):
+    def _enqueue(self, agent, text, *, sender_id=None, visible=False, role="user", user=False,
+                 responding=False, routing=None):
         _require_text(text)
-        event = self._event(agent, "message", role=role, text=text, visible=visible, sender_id=sender_id)
+        links = {"routing": routing} if routing else {}
+        event = self._event(agent, "message", role=role, text=text, visible=visible, sender_id=sender_id, **links)
         fresh = require(self.store, "agents", agent["id"])
         item = {"text": text, "event_id": event["id"], "user": user, "accepted_at": event["created_at"],
-                "sender_id": sender_id}
+                "sender_id": sender_id, **links}
         if user:
             self._turns[agent["run_id"]] = event["id"]
         if responding:
@@ -212,7 +242,7 @@ class Runtime:
         self.tasks[agent_id] = asyncio.create_task(self._drive(agent_id), name=f"evo-agent-{agent_id}")
 
     # ------------------------------------------------------------------ runs
-    def _run_settings(self, project_id, overrides=None):
+    def _run_settings(self, project_id, overrides=None, *, validate_provider=True):
         settings = get_settings(self.store)
         profile = main_agent(require(self.store, "projects", project_id))
         if profile.get("model"):
@@ -222,38 +252,62 @@ class Runtime:
         settings.update(overrides or {})
         if settings["sandbox"] != "local":
             raise ValueError("Select local execution in Settings.")
-        require_provider_key(settings, get_api_key(settings))
+        if validate_provider:
+            require_provider_key(settings, get_api_key(settings))
         return settings, profile
 
-    async def start_run(self, project_id, message, run_id=None):
+    async def start_run(self, project_id, message, run_id=None, *, kind="workflow", source=None, defer=False):
         require(self.store, "projects", project_id)
-        _require_text(message)
+        if kind not in {"workflow", "supervisor"}:
+            raise ValueError("Unknown run kind.")
+        if kind != "supervisor" or message is not None:
+            _require_text(message)
         if run_id and self.store.get("runs", run_id):
             existing = require(self.store, "runs", run_id)
             if existing["project_id"] != project_id:
                 raise ValueError("Run belongs to a different project.")
-            return await self.steer(run_id, message)
+            if existing.get("kind", "workflow") != kind:
+                raise ValueError("Run kind cannot change.")
+            return existing if message is None else await self.steer(run_id, message, defer=defer)
         run_id = run_id or uuid4().hex
-        settings, profile = self._run_settings(project_id)
+        is_supervisor = kind == "supervisor"
+        settings, profile = self._run_settings(project_id, validate_provider=not is_supervisor or message is not None)
         skill_ids = [skill["id"] for skill in self.store.list("skills", project_id=project_id, status="active")]
         prompt_ids = {}
         for prompt in self.store.list("prompts", project_id=project_id, status="active"):
             role = "orchestrator" if prompt["role"] == "triage" else prompt["role"]
             prompt_ids[role] = prompt["id"]
         wiki_revision = await asyncio.to_thread(self.knowledge.revision, project_id)
-        workspace = await asyncio.to_thread(self.workspaces.create_run, project_id, run_id)
+        spec = {}
+        if not is_supervisor and self.supervisor is not None:
+            from .specification import SPEC_SCHEMA_VERSION, spec_prompt_snapshot
+
+            spec = {"spec_schema_version": SPEC_SCHEMA_VERSION, "spec_request": message,
+                    "spec_prompt": spec_prompt_snapshot(self.store, project_id)}
+        if is_supervisor:
+            workspace = {"workdir": None, "branch": None, "base_commit": None}
+        else:
+            workspace = await asyncio.to_thread(self.workspaces.create_run, project_id, run_id)
         run = self.store.put("runs", run_id, {
-            "project_id": project_id, "title": message.strip().splitlines()[0][:100],
-            "status": "queued", "phase": "triage", "settings_snapshot": settings,
-            "skill_ids": skill_ids, "prompt_ids": prompt_ids, "wiki_revision": wiki_revision,
-            "token_usage": dict.fromkeys(USAGE_FIELDS, 0), **workspace,
-            "main_agent_snapshot": profile,
+            "project_id": project_id, "kind": kind,
+            "title": "Project Supervisor" if is_supervisor else message.strip().splitlines()[0][:100],
+            "status": "waiting" if message is None else "queued",
+            "phase": None if is_supervisor else "triage",
+            "source": source, "queue_pending": defer and not is_supervisor,
+            "settings_snapshot": settings, "skill_ids": skill_ids, "prompt_ids": prompt_ids,
+            "wiki_revision": wiki_revision, "token_usage": dict.fromkeys(USAGE_FIELDS, 0), **workspace,
+            "main_agent_snapshot": profile, **spec,
         })
-        agent = self._new_agent(run, "orchestrator", message)
+        agent = self._new_agent(run, "supervisor" if is_supervisor else "orchestrator", message)
         run = self.store.put("runs", run_id, {"root_agent_id": agent["id"]})
-        event = self._enqueue(agent, message, visible=True, user=True)
-        self.awaiting_reply[agent["id"]] = (event["id"], event["created_at"])
-        self._schedule(agent["id"])
+        if message is None:
+            self._status(agent, "waiting")
+        else:
+            routing = source if source and source.get("source_event_id") else None
+            event = self.queue_user_message(run, message, routing=routing)
+            run = {**run, "message_event_id": event["id"]}
+            if not defer:
+                self._schedule(agent["id"])
         return run
 
     async def start_evaluation_run(self, project_id, role, task, *, candidate=None, settings_overrides=None,
@@ -265,7 +319,7 @@ class Runtime:
         """
         if self.evaluation is None:
             raise RuntimeError("Evaluation runs need an isolated evaluation runtime.")
-        if role not in ROLES or role == "orchestrator":
+        if role not in ROLES or role in {"orchestrator", "supervisor"}:
             raise ValueError("Evaluate Spec, Code, Test, QA, or Helper.")
         _require_text(task)
         run_id = run_id or uuid4().hex
@@ -290,6 +344,8 @@ class Runtime:
 
     async def message_project(self, project_id, message, new_assignment=False):
         """Serialize sends per repository; other repositories can work independently."""
+        if self.supervisor is not None:
+            return await self.supervisor.message(project_id, message, new_assignment=new_assignment)
         async with self.project_locks.setdefault(project_id, asyncio.Lock()):
             runs = self.store.list("runs", project_id=project_id)
             active = [run for run in runs if run["status"] in ACTIVE and not run.get("evaluation")]
@@ -302,7 +358,7 @@ class Runtime:
                 return await self.steer(latest["id"], message)
             return await self.start_run(project_id, message)
 
-    async def steer(self, run_id, message):
+    async def steer(self, run_id, message, *, defer=False, routing=None):
         """Deliver a user message to the run's coordinator, the one authority that changes the work.
 
         If the coordinator is busy (in a model call, a tool cell, or waiting on its team), the
@@ -312,9 +368,10 @@ class Runtime:
         run = require(self.store, "runs", run_id)
         self._not_cancelling(run_id, "Wait for the current cancellation to finish.")
         root = require(self.store, "agents", run["root_agent_id"])
-        busy = root["id"] in self.tasks and self.evaluation is None
-        event = self._enqueue(root, message, visible=True, user=True, responding=busy)
-        self.awaiting_reply.setdefault(root["id"], (event["id"], event["created_at"]))
+        busy = not defer and root["id"] in self.tasks and self.evaluation is None
+        event = self.queue_user_message(run, message, responding=busy, routing=routing)
+        if defer:
+            return {**run, "message_event_id": event["id"]}
         if busy:
             self.responder.schedule(run_id, {"event_id": event["id"], "text": message,
                                              "accepted_at": event["created_at"]})
@@ -322,35 +379,52 @@ class Runtime:
             self._status(root, "queued", error=None)
             run = self._run_status(run_id, "queued", error=None)
             self._schedule(root["id"])
-        return run
+        return {**run, "message_event_id": event["id"]}
 
-    async def resume(self, run_id):
+    def queue_user_message(self, run, message, *, responding=False, routing=None):
+        root = require(self.store, "agents", run["root_agent_id"])
+        visible = not (routing and routing.get("source_event_id"))
+        event = self._enqueue(root, message, visible=visible, user=True, responding=responding, routing=routing)
+        self.awaiting_reply.setdefault(root["id"], (event["id"], event["created_at"]))
+        return event
+
+    async def resume(self, run_id, *, dispatch=False):
         run = require(self.store, "runs", run_id)
         self._not_cancelling(run_id, "Wait for the current cancellation to finish.")
         root = require(self.store, "agents", run["root_agent_id"])
         if root["id"] in self.tasks:
             return run
-        if run["status"] not in RESUMABLE:
+        if run["status"] not in RESUMABLE and run["status"] != "paused" and not (
+            dispatch and run["status"] in {"queued", "completed"}
+        ):
             raise ValueError("This run is already finished. Send a message to continue the conversation.")
+        if run.get("queue_pending") and not dispatch:
+            raise ValueError("Resume this workflow through the project scheduler.")
         if not root.get("inbox"):
             self._enqueue(root, "Continue the current assignment from its last recorded state. "
                           "Check existing results before repeating actions.")
         self._status(root, "queued", error=None)
-        run = self._run_status(run_id, "queued", error=None)
+        run = self._run_status(run_id, "queued", error=None, queue_pending=False)
         self._schedule(root["id"])
         return run
 
+    async def pause(self, run_id):
+        return await self._stop(run_id, "paused")
+
     async def cancel(self, run_id):
+        return await self._stop(run_id, "cancelled")
+
+    async def _stop(self, run_id, status):
         run = require(self.store, "runs", run_id)
         if run_id in self.cancelling:
             return run
-        self.cancelling.add(run_id)
+        self.cancelling[run_id] = status
         try:
-            return await self._cancel_run(run_id)
+            return await self._cancel_run(run_id, status)
         finally:
-            self.cancelling.discard(run_id)
+            self.cancelling.pop(run_id, None)
 
-    async def _cancel_run(self, run_id):
+    async def _cancel_run(self, run_id, status="cancelled"):
         agents = self.store.list("agents", run_id=run_id)
         tasks = [registry[a["id"]] for registry in (self.tasks, self.maintenance)
                  for a in agents if a["id"] in registry]
@@ -367,9 +441,9 @@ class Runtime:
             if repl:
                 await repl.close()
             fresh = require(self.store, "agents", agent_id)
-            if fresh["status"] in ACTIVE:
-                self._status(fresh, "cancelled")
-        return self._run_status(run_id, "cancelled")
+            if fresh["status"] in ACTIVE or (status == "paused" and fresh["status"] == "cancelled"):
+                self._status(fresh, status)
+        return self._run_status(run_id, status, queue_pending=False)
 
     async def close(self):
         self.closing = True
@@ -392,7 +466,9 @@ class Runtime:
         self._not_cancelling(run["id"])
         settings = run["settings_snapshot"]
         role = role.lower().strip()
-        if role not in ROLES or role == "orchestrator":
+        if run.get("kind") == "supervisor":
+            raise PermissionError("Start an independent workflow through workflows.start.")
+        if role not in ROLES or role in {"orchestrator", "supervisor"}:
             raise ValueError("Choose Spec, Code, Test, QA, or Helper.")
         _require_text(task, "A delegated task is required.")
         if parent.get("depth", 0) >= settings["max_depth"]:
@@ -483,7 +559,11 @@ class Runtime:
                    for item in require(self.store, "agents", agent_id).get("inbox", []))
 
     def _has_inbox(self, agent_id):
-        return bool(require(self.store, "agents", agent_id).get("inbox"))
+        agent = require(self.store, "agents", agent_id)
+        inbox = agent.get("inbox", [])
+        if agent["role"] == "supervisor":
+            return any(not (item.get("routing") or {}).get("direct") for item in inbox)
+        return bool(inbox)
 
     # ------------------------------------------------------------------ talking to the user
     def _post_visible(self, agent, text, answers=None, **data):
@@ -506,13 +586,15 @@ class Runtime:
         if awaiting and data.get("channel", "reply") == "reply" and (answers is None or awaiting[0] in answers):
             self.awaiting_reply.pop(agent["id"], None)
             data = {"reply_to": awaiting[0], "latency_ms": _elapsed_ms(awaiting[1]), **data}
+        if self.supervisor is not None:
+            data = self.supervisor.attribute_reply(agent, data)
         return self._event(agent, "message", role="assistant", text=text, visible=True, **data)
 
     def post_chat(self, agent_id, text, channel="reply", kind=None):
         """chat.reply / chat.notify: tell the user something now, while work continues."""
         agent = require(self.store, "agents", agent_id)
         run = require(self.store, "runs", agent["run_id"])
-        if agent_id != run.get("root_agent_id") or agent["role"] != "orchestrator":
+        if agent_id != run.get("root_agent_id") or agent["role"] not in {"orchestrator", "supervisor"}:
             raise PermissionError("Only the main agent talks to the user. Report to your assigning agent instead.")
         _require_text(text, "Write the message for the user.")
         text = redact(text.strip(), get_api_key(run["settings_snapshot"]))[:MAX_CHAT_CHARS]
@@ -594,7 +676,7 @@ class Runtime:
                 return await self._dispatch(agent, name, args, kwargs, key)
 
             repl = self.repls[agent_id] = PythonREPL(workspace["workdir"], settings, key,
-                                                    list(self.manifest), dispatch)
+                                                    list(self._agent_manifest(agent["role"])), dispatch)
             if self.store.message_count(agent_id) > 1:
                 self._record(agent, {"role": "user", "content":
                              "The Python process was restarted. Recreate needed variables using recorded history."})
@@ -605,18 +687,36 @@ class Runtime:
         agent_id = agent["id"]
         self._drain_inbox(require(self.store, "agents", agent_id))
         self._check_budget(agent["run_id"])
-        input_tokens = await self._input_tokens(self.store.messages(agent_id), client)
+        messages = self._model_messages(agent)
+        tools = self._model_tools(agent)
+        input_tokens = await self._input_tokens(messages, client, tools)
         if input_tokens >= compaction_threshold(settings) or agent_id in self.compactions:
             self.compactions.discard(agent_id)
             await self._compact(agent, client)
             self._check_budget(agent["run_id"])
-            input_tokens = await self._input_tokens(self.store.messages(agent_id), client)
+            messages = self._model_messages(agent)
+            input_tokens = await self._input_tokens(messages, client, tools)
         if input_tokens > settings["context_tokens"]:
             raise RuntimeError(
                 "Active input still exceeds the working input budget after compaction. "
                 "Send a smaller task or start a new chat with a larger custom input budget."
             )
-        return self.store.messages(agent_id)
+        return messages
+
+    @staticmethod
+    def _model_tools(agent):
+        if agent["role"] == "supervisor":
+            from .tools import SUPERVISOR_TOOLS
+            return SUPERVISOR_TOOLS
+        return [PYTHON_TOOL]
+
+    def _model_messages(self, agent):
+        messages = self.store.messages(agent["id"])
+        if agent["role"] != "supervisor" or self.supervisor is None:
+            return messages
+        run = require(self.store, "runs", agent["run_id"])
+        snapshot = self.supervisor.context(run["project_id"])
+        return [*messages[:1], {"role": "system", "content": snapshot}, *messages[1:]]
 
     async def _finish_turn(self, agent, run_id, root, text):
         """Wait for delegates, or record the agent's final reply. Returns True when the loop ends."""
@@ -639,11 +739,26 @@ class Runtime:
         self._report_to_parent(agent, status, text)
         return True
 
+    def _refresh_supervisor_settings(self, run, agent_id):
+        settings, _ = self._run_settings(run["project_id"])
+        previous = run["settings_snapshot"]
+        if settings != previous:
+            provider_fields = ("base_url", "api_style", "model")
+            if any(settings.get(field) != previous.get(field) for field in provider_fields):
+                history = self.store.messages(agent_id, with_event_ids=True)
+                self.store.replace_messages(agent_id, [
+                    ({key: value for key, value in message.items()
+                      if key not in {RAW_ITEMS, "reasoning_content"}}, event_id)
+                    for message, event_id in history
+                ])
+            self.store.put("runs", run["id"], {"settings_snapshot": settings})
+        return settings
+
     async def _drive(self, agent_id):
         agent = require(self.store, "agents", agent_id)
         run = require(self.store, "runs", agent["run_id"])
         root = agent_id == run["root_agent_id"]
-        talks_to_user = root and agent["role"] == "orchestrator"
+        talks_to_user = root and agent["role"] in {"orchestrator", "supervisor"}
         client = None
         try:
             if maintenance := self.maintenance.get(agent_id):
@@ -651,20 +766,26 @@ class Runtime:
             self._status(agent, "running", error=None)
             if root:
                 self._run_status(run["id"], "running", error=None)
-            settings = run["settings_snapshot"]
+            settings = (self._refresh_supervisor_settings(run, agent_id) if agent["role"] == "supervisor"
+                        else run["settings_snapshot"])
             if settings["sandbox"] != "local":
                 raise ValueError("This run requires a supported execution environment.")
             key = get_api_key(settings)
             client = ModelProvider(settings, key)
-            workspace = await asyncio.to_thread(self.workspaces.prepare_agent, agent_id)
             self._repair_unfinished_tools(agent, key)
-            repl = await self._ensure_repl(agent, workspace, settings, key)
+            repl = None
+            if agent["role"] != "supervisor":
+                workspace = await asyncio.to_thread(self.workspaces.prepare_agent, agent_id)
+                repl = await self._ensure_repl(agent, workspace, settings, key)
+            tools = self._model_tools(agent)
             for _ in range(settings["max_steps"]):
                 messages = await self._prepare_context(agent, client, settings)
+                if agent["role"] == "supervisor" and hasattr(self.store, "archive_messages"):
+                    self.store.archive_messages(agent_id, [(messages[1], None)], source="supervisor_context", secret=key)
                 response = await self._call_model(
-                    agent, client, messages, [PYTHON_TOOL],
-                    self.input_bounds.bound(agent_id, messages, [PYTHON_TOOL]),
-                    lambda: self._complete(agent, client, messages, key, root))
+                    agent, client, messages, tools,
+                    self.input_bounds.bound(agent_id, messages, tools),
+                    lambda: self._complete(agent, client, messages, key, root, tools))
                 self.input_bounds.record(agent_id, messages, response.usage)
                 text = redact(response.text, key)
                 message = response.assistant_message()
@@ -685,11 +806,12 @@ class Runtime:
                     for index, call in enumerate(response.tool_calls):
                         await self._tool_call(agent, call, repl, key, f"{message_event_id}.{index}")
                     continue
+                self.supervisor_turns.pop(agent_id, None)
                 if await self._finish_turn(agent, run["id"], root, text):
                     return
             raise RuntimeError(f"Agent reached its {settings['max_steps']}-step limit.")
         except asyncio.CancelledError:
-            status = "interrupted" if self.closing else "cancelled"
+            status = self.cancelling.get(run["id"], "interrupted" if self.closing else "cancelled")
             self._status(agent, status)
             if root:
                 self._run_status(run["id"], status)
@@ -708,14 +830,19 @@ class Runtime:
             if client:
                 await client.close()
             self.tasks.pop(agent_id, None)
+            self.supervisor_turns.pop(agent_id, None)
             fresh = self.store.get("agents", agent_id)
-            if (fresh and fresh["run_id"] not in self.cancelling
-                    and fresh["status"] in {"waiting", "completed", "queued"} and fresh.get("inbox")):
+            latest_run = self.store.get("runs", run["id"])
+            if (fresh and latest_run and fresh["run_id"] not in self.cancelling
+                    and not latest_run.get("queue_pending") and latest_run.get("status") != "paused"
+                    and fresh["status"] in {"waiting", "completed", "queued"} and self._has_inbox(agent_id)):
                 self._schedule(agent_id)
+            if latest_run:
+                self._notify_listeners("agent_finished", latest_run, agent_id=agent_id)
 
-    async def _complete(self, agent, client, messages, key, root):
+    async def _complete(self, agent, client, messages, key, root, tools):
         if not root:
-            return await client.complete(messages, tools=[PYTHON_TOOL])
+            return await client.complete(messages, tools=tools)
         # A credential split across stream chunks must stay out of the event log.
         redactor = StreamRedactor(key)
 
@@ -724,7 +851,7 @@ class Runtime:
                 self._event(agent, "agent.delta", text=ready, stream="draft")
 
         try:
-            return await client.complete(messages, tools=[PYTHON_TOOL], on_delta=on_delta)
+            return await client.complete(messages, tools=tools, on_delta=on_delta)
         finally:
             self._event(agent, "agent.response", stream="draft")
 
@@ -744,9 +871,28 @@ class Runtime:
         inbox = agent.get("inbox", [])
         if not inbox:
             return
+        remaining = []
+        if agent["role"] == "supervisor":
+            if agent["id"] in self.supervisor_turns:
+                return
+            for index, item in enumerate(inbox):
+                if item.get("user") and not (item.get("routing") or {}).get("direct"):
+                    inbox, remaining = inbox[:index + 1], inbox[index + 1:]
+                    self.supervisor_turns[agent["id"]] = item["event_id"]
+                    break
         items = []
         for item in inbox:
             content = item["text"]
+            routing = item.get("routing") or {}
+            if routing.get("direct"):
+                content = ("[This project message was already handled by the selected routing action. "
+                           "Use it as conversation context. Do not route or answer it again.]\n" + content)
+            elif routing.get("source_event_id"):
+                content = (f"[Project Supervisor forwarded this instruction. This workflow's message ID is "
+                           f"{item['event_id']}. Use chat.applied with that ID after carrying it out.]\n"
+                           + content)
+            elif agent["role"] == "supervisor" and item.get("user"):
+                content = f"[Project user message ID: {item['event_id']}]\n" + content
             if item.get("reply"):
                 content += ("\n\n[While you were busy, you already replied to the user: "
                             f"{item['reply']}]\nAct on any instruction in the message. Reply again only "
@@ -757,12 +903,12 @@ class Runtime:
                             "user once it has actually been applied.]")
             items.append(({"role": "user", "content": content}, item["event_id"]))
         self.store.append_messages(agent["id"], items)
-        self.store.put("agents", agent["id"], {"inbox": []})
+        self.store.put("agents", agent["id"], {"inbox": remaining})
         for item in inbox:
             if item.get("user"):
                 # The coordinator has now read the message: received is not the same as applied.
                 self._event(agent, "message.delivered", message_event_id=item["event_id"],
-                            delay_ms=_elapsed_ms(item.get("accepted_at")),
+                            routing=item.get("routing"), delay_ms=_elapsed_ms(item.get("accepted_at")),
                             quick_reply="sent" if item.get("reply") else
                             "in progress" if item.get("responding") else None)
                 if ((item.get("reply") or item.get("responding"))
@@ -940,8 +1086,12 @@ class Runtime:
                 raise BudgetExceeded(
                     f"Run reached its spending limit: the next model call could cost up to ${need.cost:.4f} and "
                     f"${max(0.0, float(dollars) - spent - held.cost):.4f} of ${float(dollars):.2f} remain.")
-        else:
+        elif self.scheduler is None or not prices_set(settings):
             need = Reservation(need.tokens, 0.0)
+        if self.scheduler is not None and self.evaluation is None:
+            if self.scheduler.has_cost_cap(run["project_id"]) and not prices_set(settings):
+                raise BudgetExceeded("Configure model prices before using a project spending limit.")
+            self.scheduler.check_budget(run["project_id"], need)
         self._set_reserved(run_id, Reservation(held.tokens + need.tokens, held.cost + need.cost))
         return need
 
@@ -979,19 +1129,28 @@ class Runtime:
         token = _PYTHON_SPAN.set((agent["id"], span_id))
         try:
             arguments = call.parsed_arguments()
-            if call.name != "python":
-                raise ValueError(f"Unknown model tool {call.name!r}.")
-            if not isinstance(arguments.get("code"), str):
-                raise ValueError("Python tool requires a code string.")
-            result = await repl.execute(arguments["code"])
-        except (ValueError, TypeError) as exc:
-            result = {"error": redact(str(exc), key)}
+            if agent["role"] == "supervisor":
+                from .tools import SUPERVISOR_TOOL_NAMES
+                name = SUPERVISOR_TOOL_NAMES.get(call.name)
+                if name is None:
+                    raise PermissionError(f"{call.name!r} is unavailable to the supervisor.")
+                result = await self._dispatch(
+                    agent, name, [], {key: value for key, value in arguments.items() if value is not None}, key,
+                )
+            else:
+                if call.name != "python":
+                    raise ValueError(f"Unknown model tool {call.name!r}.")
+                if not isinstance(arguments.get("code"), str):
+                    raise ValueError("Python tool requires a code string.")
+                result = await repl.execute(arguments["code"])
         except asyncio.CancelledError:
             self._record_result(agent, call.id, call.name, {"error": "Interrupted."}, key, span_id)
             raise
         except Exception as exc:
-            self._record_result(agent, call.id, call.name, {"error": str(exc) or type(exc).__name__}, key, span_id)
-            raise
+            result = {"error": redact(str(exc) or type(exc).__name__, key)}
+            if agent["role"] != "supervisor" and not isinstance(exc, (ValueError, TypeError)):
+                self._record_result(agent, call.id, call.name, result, key, span_id)
+                raise
         finally:
             _PYTHON_SPAN.reset(token)
         self._record_result(agent, call.id, call.name, result, key, span_id)
@@ -1025,13 +1184,13 @@ class Runtime:
                 "artifact_ids": artifact_ids, "characters": len(encoded),
                 "note": "Use artifacts.read(id) for full output."}
 
-    async def _input_tokens(self, messages, client):
+    async def _input_tokens(self, messages, client, tools):
         # Conservative local trigger, including tool schema. The counting API
         # resolves encrypted reasoning and avoids double-counting response items.
         estimate = (sum(len(json.dumps(m, ensure_ascii=True)) for m in messages)
-                    + len(json.dumps(PYTHON_TOOL))) // 3
+                    + len(json.dumps(tools))) // 3
         if estimate >= compaction_threshold(client.settings) * 0.8:
-            measured = await client.count_input_tokens(messages, tools=[PYTHON_TOOL])
+            measured = await client.count_input_tokens(messages, tools=tools)
             if measured is not None:
                 return measured
         return estimate

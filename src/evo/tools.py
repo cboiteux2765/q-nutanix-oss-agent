@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shutil
 from tempfile import TemporaryFile
+from typing import get_args, get_origin, get_type_hints
 from threading import RLock
 from uuid import uuid4
 
@@ -29,6 +30,17 @@ _WIKI_VIEW_LOCK = RLock()
 _SHELL_PREVIEW_BYTES = 8 * 1024
 _SHELL_RETENTION_BYTES = 64 * 1024 * 1024
 _SHELL_CHUNK_BYTES = 1024 * 1024
+
+_SUPERVISOR_READ_TOOLS = {
+    "repo.list", "repo.read", "repo.search", "repo.status",
+    "history.search", "history.read", "history.trace", "history.expand",
+    "memory.list", "memory.read", "memory.history", "artifacts.read",
+}
+
+def tool_available(role: str, name: str) -> bool:
+    if role == "supervisor":
+        return name.startswith("workflows.") or name in _SUPERVISOR_READ_TOOLS
+    return not name.startswith("workflows.") and (name != "chat.applied" or role == "orchestrator")
 
 
 def _shell_log(stream, label: str, scope: "_Scope", command_id: str, secret: str) -> dict:
@@ -124,6 +136,8 @@ class ToolBroker:
         if name not in TOOL_MANIFEST:
             raise ValueError(f"Unknown tool {name!r}.")
         scope = _Scope(self, agent_id)
+        if not tool_available(scope.role, name):
+            raise PermissionError(f"{name} is unavailable to {scope.role}.")
         # Evaluation runs deny tools with outside effects (publishing, web, durable memory).
         denied = scope.run.get("tool_policy", {}).get("deny", [])
         if any(name == rule or (rule.endswith(".*") and name.startswith(rule[:-1])) for rule in denied):
@@ -150,7 +164,13 @@ class _Scope:
         self.project_id = self.run["project_id"]
         self.role = self.agent["role"].lower()
 
-    def _workspace(self, write: bool = False) -> tuple[Path, str]:
+    def _workspace(self, write: bool = False) -> tuple[Path, str | None]:
+        if self.role == "supervisor":
+            if write:
+                raise PermissionError("Project repository access is read-only for the supervisor.")
+            project = require(self.store, "projects", self.project_id)
+            root = Path(project["path"]).resolve(strict=True)
+            return root, git(root, "rev-parse", "--verify", "HEAD", check=False) or None
         if self.role == "code":
             if write:
                 self.broker.workspaces.acquire_writer(self.agent_id)
@@ -163,7 +183,7 @@ class _Scope:
     def _repo_files(self, workdir: Path, path: str) -> list[str]:
         relative = _repo_path(workdir, path).relative_to(workdir).as_posix()
         listing = git(workdir, "--literal-pathspecs", "ls-files", "-z", "--cached", "--others", "--exclude-standard",
-                      "--", relative)
+                      "--", relative, check=self.role != "supervisor")
         return list(dict.fromkeys(file for file in listing.split("\0") if file))
 
     def repo_list(self, path: str = ".", limit: int = 200) -> dict:
@@ -376,6 +396,77 @@ class _Scope:
         if kind not in {"progress", "blocker", "question"}:
             raise ValueError("Use kind progress, blocker, or question.")
         return self.broker.runtime.post_chat(self.agent_id, text, channel="update", kind=kind)
+
+    def _supervisor(self):
+        service = self.broker.runtime.supervisor
+        if service is None:
+            raise PermissionError("The project supervisor is not configured.")
+        return service
+
+    def _source_event(self):
+        if not (source_event_id := self.broker.runtime.supervisor_turns.get(self.agent_id)):
+            raise ValueError("Workflow actions require an instruction in the project conversation.")
+        return source_event_id
+
+    def chat_applied(self, message_event_id: str, summary: str, event_ids: list[str] | None = None) -> dict:
+        """records how a delivered instruction was applied, with optional workflow event IDs."""
+        return self._supervisor().applied(
+            self.project_id, self.run_id, self.agent_id, message_event_id, summary, event_ids,
+        )
+
+    def workflows_list(self) -> list[dict]:
+        """lists independent workflows and their IDs and statuses, including queued and archived work."""
+        return self._supervisor().list_workflows(self.project_id)
+
+    def workflows_status(self, run_id: str) -> dict:
+        """reads exact phase, commits, handoffs and findings for a workflow."""
+        return self._supervisor().status(self.project_id, run_id)
+
+    def workflows_agents(self, run_id: str) -> list[dict]:
+        """lists the named agents, current assignments, results and failures in a workflow."""
+        return self._supervisor().agents(self.project_id, run_id)
+
+    def workflows_events(self, run_id: str, agent_id: str | None = None, after: int = 0, limit: int = 30) -> dict:
+        """pages through original workflow or agent events; use next_after to continue."""
+        return self._supervisor().events(self.project_id, run_id, agent_id, after, limit)
+
+    def workflows_transcript(self, run_id: str, agent_id: str, after: int = 0, limit: int = 20) -> dict:
+        """pages through the complete available agent transcript with original event IDs."""
+        return self._supervisor().transcript(self.project_id, run_id, agent_id, after, limit)
+
+    def workflows_artifacts(self, run_id: str) -> list[dict]:
+        """lists workflow artifact IDs and metadata; use artifacts_read for content."""
+        return self._supervisor().artifacts(self.project_id, run_id)
+
+    def workflows_handoffs(self, run_id: str) -> list[dict]:
+        """lists original workflow handoffs with commit and artifact evidence."""
+        return self._supervisor().handoffs(self.project_id, run_id)
+
+    def workflows_delivery(self, run_id: str, message_event_id: str) -> dict:
+        """checks an instruction receipt for received, delivered or applied status and evidence IDs."""
+        return self._supervisor().delivery(self.project_id, run_id, message_event_id)
+
+    async def workflows_start(self, message: str) -> dict:
+        """starts one independent workflow for a user-authorized new assignment, preserving the full request."""
+        return await self._supervisor().start(
+            self.project_id, message, source_event_id=self._source_event(),
+        )
+
+    async def workflows_send(self, run_id: str, message: str) -> dict:
+        """routes a user instruction to one identified workflow coordinator and returns its receipt."""
+        return await self._supervisor().send(
+            self.project_id, run_id, message, source_event_id=self._source_event(),
+        )
+
+    async def workflows_pause(self, run_id: str) -> dict:
+        """pauses only the specified workflow when the user asks, preserving worktree and history."""
+        self._source_event()
+        return await self._supervisor().pause(self.project_id, run_id)
+
+    async def workflows_resume(self, run_id: str) -> dict:
+        """resumes only the specified workflow when the user asks."""
+        self._source_event()
+        return await self._supervisor().resume(self.project_id, run_id)
 
     def _project_run(self, run_id: str) -> dict:
         run = require(self.store, "runs", run_id)
@@ -611,3 +702,30 @@ TOOL_MANIFEST = {
     for attribute, method in vars(_Scope).items()
     if not attribute.startswith("_") and callable(method)
 }
+
+def _parameter_schema(annotation):
+    if annotation is type(None):
+        return {"type": "null"}
+    if get_origin(annotation) is list:
+        return {"type": "array", "items": _parameter_schema(get_args(annotation)[0])}
+    if types := get_args(annotation):
+        return {"anyOf": [_parameter_schema(item) for item in types]}
+    return {"type": {str: "string", int: "integer", bool: "boolean"}[annotation]}
+
+
+def _supervisor_tool(name):
+    method = getattr(_Scope, name.replace(".", "_"))
+    annotations = get_type_hints(method)
+    properties = {parameter: _parameter_schema(annotations[parameter])
+                  for parameter in list(inspect.signature(method).parameters)[1:]}
+    return {"type": "function", "function": {
+        "name": name.replace(".", "_"), "description": inspect.getdoc(method),
+        "strict": False,
+        "parameters": {"type": "object", "properties": properties, "additionalProperties": False,
+                       "required": [parameter.name for parameter in inspect.signature(method).parameters.values()
+                                    if parameter.name != "self" and parameter.default is parameter.empty]},
+    }}
+
+
+SUPERVISOR_TOOL_NAMES = {name.replace(".", "_"): name for name in TOOL_MANIFEST if tool_available("supervisor", name)}
+SUPERVISOR_TOOLS = [_supervisor_tool(name) for name in SUPERVISOR_TOOL_NAMES.values()]
