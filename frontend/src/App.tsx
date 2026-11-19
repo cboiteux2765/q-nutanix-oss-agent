@@ -33,6 +33,7 @@ import Sidebar, { RESOURCE_TABS, type View } from './Sidebar';
 import { Composer, MessageList, NewConversation } from './Conversation';
 import { Dashboard, DashboardRail } from './Dashboard';
 import { useRun } from './useRun';
+import { useWorkPanelKeyboard } from './useWorkPanelKeyboard';
 import { useWorkspaceRoute } from './workspaceRoute';
 
 type ChatHistory = { messages: Event[]; firstSeq: number | null; hasMore: boolean };
@@ -72,6 +73,7 @@ export default function App() {
   const [streamStart, setStreamStart] = useState<{ projectId: string; after: number } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const workspaceBody = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const currentProject = useRef<string | null>(null);
   const conversationGeneration = useRef(0);
@@ -130,6 +132,15 @@ export default function App() {
   const panelOpen = workView && !!runId;
   const workRun =
     panelOpen && work.run?.id === runId && work.run.project_id === projectId ? work.run : null;
+  const closeWork = useCallback(() => {
+    navigate({ runId: null, agentId: null, trace: false });
+  }, [navigate]);
+  useWorkPanelKeyboard(
+    workspaceBody,
+    panelOpen && !loading && !serverError,
+    workRun?.id,
+    closeWork,
+  );
   const workAgents = workRun ? work.detail?.agents || [] : [];
   const roster = workRun
     ? workAgents
@@ -421,9 +432,6 @@ export default function App() {
       trace: !!agent,
     });
     setSidebarOpen(false);
-  }
-  function closeWork() {
-    navigate({ runId: null, agentId: null, trace: false });
   }
   function showSupervisorWork() {
     if (supervisorRun) openWork(supervisorRun.id);
@@ -738,7 +746,10 @@ export default function App() {
             </button>
           </div>
         </header>
-        <div className={`workspace-body ${chatting ? 'workspace-focused' : ''}`}>
+        <div
+          ref={workspaceBody}
+          className={`workspace-body ${chatting ? 'workspace-focused' : ''}`}
+        >
           <main
             className={`main-content ${chatting ? '' : 'scrollable'} ${home ? 'dashboard-main' : ''}`}
           >
@@ -798,6 +809,7 @@ export default function App() {
               <button
                 className="activity-scrim"
                 aria-label="Close work panel"
+                tabIndex={-1}
                 onClick={closeWork}
               />
               {workRun ? (
