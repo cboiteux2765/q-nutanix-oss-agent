@@ -1,5 +1,7 @@
 import { memo, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Activity,
   Bot,
@@ -15,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { api, errorText, mergeBySeq } from './api';
-import { EventIcon, eventLabel, MarkdownText, Status } from './components';
+import { EventIcon, eventLabel, Status } from './components';
 import type { Agent, Artifact, Event, Run } from './types';
 import './AgentTrace.css';
 
@@ -146,18 +148,41 @@ function objectOutput(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function artifactIds(data: Record<string, unknown>) {
-  const output = objectOutput(data.result);
+function artifactIds(output: Record<string, unknown>, source?: unknown) {
+  const isArtifactRecord =
+    (source === 'artifacts.read' || source === 'artifacts.write') &&
+    typeof output.project_id === 'string' &&
+    typeof output.run_id === 'string' &&
+    typeof output.name === 'string' &&
+    typeof output.kind === 'string';
   return [
-    data.artifact_id,
-    data.main_artifact_id,
     output.artifact_id,
     output.main_artifact_id,
-    data.artifact_ids,
     output.artifact_ids,
+    output.stdout_artifact_ids,
+    output.stderr_artifact_ids,
+    source === 'workflow.handoff' ? output.artifacts : undefined,
+    isArtifactRecord ? output.id : undefined,
   ]
     .flat()
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+function eventArtifactIds(event: Event) {
+  return [
+    ...artifactIds(event.data, event.kind),
+    ...artifactIds(
+      objectOutput(event.data.result),
+      event.kind === 'tool.finished' ? event.data.name : undefined,
+    ),
+  ];
+}
+
+function readArtifact(projectId: string, id: string, signal: AbortSignal) {
+  return api<Artifact>(
+    `/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(id)}`,
+    { signal },
+  );
 }
 
 function indexActivity(events: Event[]) {
@@ -184,11 +209,38 @@ function indexActivity(events: Event[]) {
     if (typeof parent_span_id === 'string') span.parent = `span:${parent_span_id}`;
     span.events.push(event);
   }
-  return { spans, activity };
+  const children = new Map<string, ToolSpan[]>();
+  for (const span of spans.values()) {
+    if (!span.parent || span.parent === span.key) continue;
+    const group = children.get(span.parent);
+    if (group) group.push(span);
+    else children.set(span.parent, [span]);
+  }
+  return { spans, activity, children };
 }
 
 function CodeBlock({ value }: { value: unknown }) {
   return <pre className="trace-code">{pretty(value)}</pre>;
+}
+
+function TraceMarkdown({ children }: { children: string }) {
+  return (
+    <div className="markdown">
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ children, ...props }) => (
+            <a {...props} target="_blank" rel="noreferrer">
+              {children}
+            </a>
+          ),
+          img: ({ alt }) => <span>{alt}</span>,
+        }}
+      >
+        {children}
+      </Markdown>
+    </div>
+  );
 }
 
 function Disclosure({
@@ -214,7 +266,7 @@ function Disclosure({
   );
 }
 
-function TraceArtifact({ id }: { id: string }) {
+function TraceArtifact({ projectId, id }: { projectId: string; id: string }) {
   const [opened, setOpened] = useState(false);
   const [artifact, setArtifact] = useState<Artifact>();
   const [error, setError] = useState('');
@@ -222,7 +274,7 @@ function TraceArtifact({ id }: { id: string }) {
   useEffect(() => {
     if (!opened) return;
     const controller = new AbortController();
-    api<Artifact>(`/artifacts/${encodeURIComponent(id)}`, { signal: controller.signal })
+    readArtifact(projectId, id, controller.signal)
       .then((value) => {
         if (!controller.signal.aborted) setArtifact(value);
       })
@@ -230,7 +282,7 @@ function TraceArtifact({ id }: { id: string }) {
         if (!controller.signal.aborted) setError(errorText(e));
       });
     return () => controller.abort();
-  }, [opened, id, attempt]);
+  }, [opened, projectId, id, attempt]);
 
   return (
     <details
@@ -268,10 +320,10 @@ function TraceArtifact({ id }: { id: string }) {
   );
 }
 
-function ToolDetails({ span }: { span: ToolSpan }) {
+function ToolDetails({ span, projectId }: { span: ToolSpan; projectId: string }) {
   const start = span.events.find((event) => event.kind === 'tool.started');
   const finish = span.events.find((event) => event.kind === 'tool.finished');
-  const artifacts = [...new Set(span.events.flatMap((event) => artifactIds(event.data)))];
+  const artifacts = [...new Set(span.events.flatMap(eventArtifactIds))];
   return (
     <>
       {start?.data.arguments != null && (
@@ -285,7 +337,7 @@ function ToolDetails({ span }: { span: ToolSpan }) {
         </Disclosure>
       )}
       {artifacts.map((id) => (
-        <TraceArtifact key={id} id={id} />
+        <TraceArtifact key={id} projectId={projectId} id={id} />
       ))}
       <Disclosure
         summary={
@@ -307,9 +359,13 @@ function TraceTime({ value }: { value: string | null }) {
 const ActivityRow = memo(function ActivityRow({
   item,
   parent,
+  children,
+  projectId,
 }: {
   item: ToolSpan | Event;
   parent?: ToolSpan;
+  children?: ToolSpan[];
+  projectId: string;
 }) {
   if ('events' in item) {
     const first = item.events[0];
@@ -331,7 +387,19 @@ const ActivityRow = memo(function ActivityRow({
               </>
             }
           >
-            <ToolDetails span={item} />
+            <ToolDetails span={item} projectId={projectId} />
+            {children?.map((child) => (
+              <Disclosure
+                key={child.key}
+                summary={
+                  <>
+                    <GitBranch size={14} /> Child span · {child.name}
+                  </>
+                }
+              >
+                <ToolDetails span={child} projectId={projectId} />
+              </Disclosure>
+            ))}
             {item.parent && (
               <Disclosure
                 summary={
@@ -341,7 +409,7 @@ const ActivityRow = memo(function ActivityRow({
                 }
               >
                 {parent ? (
-                  <ToolDetails span={parent} />
+                  <ToolDetails span={parent} projectId={projectId} />
                 ) : (
                   <p className="trace-inline-status">
                     The parent event is outside the loaded activity.
@@ -354,7 +422,7 @@ const ActivityRow = memo(function ActivityRow({
       </div>
     );
   }
-  const ids = artifactIds(item.data);
+  const ids = [...new Set(eventArtifactIds(item))];
   return (
     <div className="trace-row">
       <span className="trace-row-icon">
@@ -378,7 +446,7 @@ const ActivityRow = memo(function ActivityRow({
         >
           <CodeBlock value={item.data} />
           {ids.map((id) => (
-            <TraceArtifact key={id} id={id} />
+            <TraceArtifact key={id} projectId={projectId} id={id} />
           ))}
         </Disclosure>
       </div>
@@ -386,7 +454,13 @@ const ActivityRow = memo(function ActivityRow({
   );
 });
 
-const TranscriptRow = memo(function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
+const TranscriptRow = memo(function TranscriptRow({
+  entry,
+  projectId,
+}: {
+  entry: TranscriptEntry;
+  projectId: string;
+}) {
   const { message, reasoning } = entry;
   const { role, content, tool_calls } = message;
   const label = ROLE_LABELS[role] || role;
@@ -428,13 +502,13 @@ const TranscriptRow = memo(function TranscriptRow({ entry }: { entry: Transcript
               <CodeBlock value={content} />
             </Disclosure>
           ) : typeof content === 'string' ? (
-            <MarkdownText>{content}</MarkdownText>
+            <TraceMarkdown>{content}</TraceMarkdown>
           ) : (
             <CodeBlock value={content} />
           ))}
         {role === 'tool' &&
           [...new Set(artifactIds(objectOutput(content)))].map((id) => (
-            <TraceArtifact key={id} id={id} />
+            <TraceArtifact key={id} projectId={projectId} id={id} />
           ))}
         {(tool_calls || []).map((call) => (
           <Disclosure
@@ -453,7 +527,7 @@ const TranscriptRow = memo(function TranscriptRow({ entry }: { entry: Transcript
             key={index}
             summary={item.kind === 'summary' ? 'Provider reasoning summary' : 'Provider reasoning'}
           >
-            <MarkdownText>{item.text}</MarkdownText>
+            <p className="trace-reasoning">{item.text}</p>
           </Disclosure>
         ))}
         {role === 'assistant' && !availableReasoning.length && (
@@ -491,7 +565,8 @@ export default function AgentTrace(props: TraceProps) {
 }
 
 function TraceDialog({ run, agent, onClose }: TraceProps) {
-  const path = `/projects/${encodeURIComponent(run.project_id)}/runs/${encodeURIComponent(run.id)}/agents/${encodeURIComponent(agent.id)}/trace`;
+  const projectId = run.project_id;
+  const path = `/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(run.id)}/agents/${encodeURIComponent(agent.id)}/trace`;
   const transcript = useTracePages<TranscriptEntry>(`${path}/transcript`);
   const events = useTracePages<Event>(`${path}/events`);
   const [view, setView] = useState<'transcript' | 'events'>('transcript');
@@ -505,7 +580,10 @@ function TraceDialog({ run, agent, onClose }: TraceProps) {
   const scroll = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const query = useDeferredValue(search.trim().toLowerCase());
-  const { spans, activity } = useMemo(() => indexActivity(events.entries), [events.entries]);
+  const { spans, activity, children } = useMemo(
+    () => indexActivity(events.entries),
+    [events.entries],
+  );
 
   useEffect(() => {
     const element = dialog.current;
@@ -576,14 +654,13 @@ function TraceDialog({ run, agent, onClose }: TraceProps) {
       return { entries, completeness: page.completeness };
     }
     try {
-      const [messages, activity] = await Promise.all([
-        readAll<TranscriptEntry>('transcript'),
-        readAll<Event>('events'),
-      ]);
+      // An archived message's linked event is committed before the transcript row is visible.
+      const messages = await readAll<TranscriptEntry>('transcript');
+      const activity = await readAll<Event>('events');
       const artifacts: Artifact[] = [];
       const missingArtifacts: { id: string; error: string }[] = [];
       const ids = new Set([
-        ...activity.entries.flatMap((event) => artifactIds(event.data)),
+        ...activity.entries.flatMap(eventArtifactIds),
         ...messages.entries.flatMap(({ message }) =>
           message.role === 'tool' ? artifactIds(objectOutput(message.content)) : [],
         ),
@@ -591,9 +668,7 @@ function TraceDialog({ run, agent, onClose }: TraceProps) {
       for (const id of ids) {
         let artifact: Artifact;
         try {
-          artifact = await api<Artifact>(`/artifacts/${encodeURIComponent(id)}`, {
-            signal: controller.signal,
-          });
+          artifact = await readArtifact(projectId, id, controller.signal);
         } catch (e) {
           controller.signal.throwIfAborted();
           missingArtifacts.push({ id, error: errorText(e) });
@@ -767,16 +842,20 @@ function TraceDialog({ run, agent, onClose }: TraceProps) {
       )}
       <div ref={scroll} className="trace-scroll">
         {view === 'transcript'
-          ? visibleMessages.map((entry) => <TranscriptRow key={entry.seq} entry={entry} />)
+          ? visibleMessages.map((entry) => (
+              <TranscriptRow key={entry.seq} entry={entry} projectId={projectId} />
+            ))
           : visibleActivity.map((item) =>
               'events' in item ? (
                 <ActivityRow
                   key={item.key}
                   item={item}
                   parent={item.parent ? spans.get(item.parent) : undefined}
+                  children={children.get(item.key)}
+                  projectId={projectId}
                 />
               ) : (
-                <ActivityRow key={item.id} item={item} />
+                <ActivityRow key={item.id} item={item} projectId={projectId} />
               ),
             )}
         {!matches && !viewData.error && (

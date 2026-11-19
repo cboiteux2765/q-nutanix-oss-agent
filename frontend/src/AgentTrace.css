@@ -381,10 +381,12 @@
   padding: 0 8px 8px;
 }
 
-.trace-detail-body > .markdown {
+.trace-reasoning {
   padding: 3px 7px;
   font-size: 13px;
+  line-height: 1.65;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .trace-code {
