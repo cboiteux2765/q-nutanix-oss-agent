@@ -123,7 +123,6 @@
   display: grid;
   place-items: center;
   border-inline: 1px solid var(--line);
-  background: radial-gradient(ellipse at center, var(--sage), transparent 73%);
 }
 
 .dashboard-chat-content {
@@ -142,14 +141,47 @@
 }
 
 .dashboard-chat .compact-composer {
+  position: relative;
+  isolation: isolate;
   max-width: 520px;
   padding: 0;
 }
 
+.dashboard-chat .compact-composer::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -40px -16px -52px;
+  background: radial-gradient(
+    ellipse closest-side at 50% 56%,
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    color-mix(in srgb, var(--accent) 7%, transparent) 54%,
+    transparent
+  );
+  pointer-events: none;
+}
+
 .dashboard-chat .composer {
+  --composer-ring: transparent;
   min-height: 56px;
   padding: 9px;
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--line));
   border-radius: 30px;
+  box-shadow:
+    0 0 0 3px var(--composer-ring),
+    0 3px 8px color-mix(in srgb, var(--ink) 9%, transparent),
+    0 14px 30px -10px color-mix(in srgb, var(--forest) 34%, transparent);
+}
+
+@media (hover: hover) {
+  .dashboard-chat .composer:hover {
+    border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
+  }
+}
+
+.dashboard-chat .composer:focus-within {
+  --composer-ring: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: var(--accent);
 }
 
 .dashboard-chat .composer textarea {
