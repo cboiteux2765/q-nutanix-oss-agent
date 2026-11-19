@@ -114,6 +114,7 @@ export function MessageList({
   messages,
   pendingText,
   hasMore,
+  loadingEarlier,
   onEarlier,
   streaming,
   draft,
@@ -129,6 +130,7 @@ export function MessageList({
   messages: Event[];
   pendingText?: string;
   hasMore: boolean;
+  loadingEarlier: boolean;
   onEarlier: () => void;
   streaming: string;
   draft: string;
@@ -139,9 +141,9 @@ export function MessageList({
   onOpenSource: (runId: string, agentId?: string) => void;
   onResume: () => void;
 }) {
-  const lastUserSeq = Math.max(
+  const lastUserSeq = messages.reduce(
+    (last, message) => (message.data.role === 'user' ? Math.max(last, message.seq) : last),
     0,
-    ...messages.filter((m) => m.data.role === 'user').map((m) => m.seq),
   );
   const teamWorking = agents.some(
     (a) => a.role !== 'orchestrator' && ACTIVE_STATES.includes(a.status),
@@ -156,8 +158,13 @@ export function MessageList({
         })}
       </div>
       {hasMore && (
-        <button className="text-button earlier-messages" onClick={onEarlier}>
-          Earlier messages
+        <button
+          className="text-button earlier-messages"
+          onClick={onEarlier}
+          disabled={loadingEarlier}
+          aria-busy={loadingEarlier}
+        >
+          {loadingEarlier ? 'Loading earlier messages…' : 'Earlier messages'}
         </button>
       )}
       {messages.map((e) => {

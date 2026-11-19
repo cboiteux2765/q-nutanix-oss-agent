@@ -74,7 +74,7 @@ export function useRun(notify: (text: string, error?: boolean) => void) {
     const id = runId;
     let closed = false;
     let refresh: ReturnType<typeof setTimeout> | undefined;
-    const last = Math.max(0, ...events.map((e) => e.seq));
+    const last = events.reduce((maxSeq, event) => Math.max(maxSeq, event.seq), 0);
     const source = new EventSource(`/api/runs/${id}/events?after=${last}`);
     // New events arrive on the stream, so the refresh only needs the run and its agents.
     const refreshDetail = () => {

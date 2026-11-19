@@ -19,7 +19,6 @@ import {
   type Event,
   type Project,
   type ProjectDashboard,
-  type Run,
   type Settings,
 } from './types';
 import ProjectModal from './ProjectModal';
@@ -35,6 +34,9 @@ import { Composer, MessageList, NewConversation } from './Conversation';
 import { Dashboard, DashboardRail } from './Dashboard';
 import { useRun } from './useRun';
 import { useWorkspaceRoute } from './workspaceRoute';
+
+type ChatHistory = { messages: Event[]; firstSeq: number | null; hasMore: boolean };
+const emptyHistory: ChatHistory = { messages: [], firstSeq: null, hasMore: false };
 
 export default function App() {
   const { route, navigate } = useWorkspaceRoute();
@@ -56,8 +58,8 @@ export default function App() {
   const [agentModal, setAgentModal] = useState(false);
   const [projectMenu, setProjectMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [storedMessages, setChatMessages] = useState<Event[]>([]);
-  const [hasMore, setHasMore] = useState(false);
+  const [storedHistory, setHistory] = useState(emptyHistory);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [conversationError, setConversationError] = useState('');
   const [dashboardData, setDashboard] = useState<ProjectDashboard | null>(null);
@@ -72,6 +74,8 @@ export default function App() {
   const composer = useRef<HTMLTextAreaElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const currentProject = useRef<string | null>(null);
+  const conversationGeneration = useRef(0);
+  const loadingSupervisor = useRef<string | null>(null);
   const followMessages = useRef(true);
   const dashboardRequest = useRef(0);
 
@@ -81,7 +85,8 @@ export default function App() {
     routedProject || projects.find((item) => item.id === savedProject) || projects[0] || null;
   const projectId = project?.id || null;
   const dashboard = dataProject === projectId ? dashboardData : null;
-  const chatMessages = dataProject === projectId ? storedMessages : [];
+  const history = dataProject === projectId ? storedHistory : emptyHistory;
+  const chatMessages = history.messages;
   const onboarding = setup === 'invite' && (!project || setupRequested);
   const home = view === 'workspace' && !!project && !onboarding;
   const chatting = view === 'conversation' || (view === 'workspace' && !home);
@@ -168,20 +173,33 @@ export default function App() {
   }, [projectId, routedProject, navigate]);
 
   const loadConversation = useCallback(
-    async (id: string, initial = false) => {
-      const conversation = await api<Conversation>(`/projects/${id}/conversation`);
+    async (id: string) => {
       if (currentProject.current !== id) return;
-      setChatMessages((old) => mergeBySeq(old, conversation.messages));
-      if (initial) setHasMore(conversation.has_more);
+      const generation = conversationGeneration.current;
+      const conversation = await api<Conversation>(`/projects/${id}/conversation`);
+      if (currentProject.current !== id || conversationGeneration.current !== generation) return;
+      setHistory((old) => ({
+        messages: mergeBySeq(old.messages, conversation.messages),
+        firstSeq: old.firstSeq ?? conversation.messages[0]?.seq ?? null,
+        hasMore: old.firstSeq === null ? conversation.has_more : old.hasMore,
+      }));
       setConversationError('');
       const supervisorId = conversation.supervisor_run_id;
-      if (supervisorId && !supervisorIsOpen(supervisorId)) {
-        await loadSupervisor(supervisorId, id);
+      if (
+        supervisorId &&
+        !supervisorIsOpen(supervisorId) &&
+        loadingSupervisor.current !== supervisorId
+      ) {
+        loadingSupervisor.current = supervisorId;
+        void loadSupervisor(supervisorId, id).finally(() => {
+          if (conversationGeneration.current === generation) loadingSupervisor.current = null;
+        });
       }
     },
     [loadSupervisor, supervisorIsOpen],
   );
   const refreshDashboard = useCallback(async (id: string) => {
+    if (currentProject.current !== id) return;
     const request = ++dashboardRequest.current;
     try {
       const data = await api<ProjectDashboard>(`/projects/${id}/dashboard`);
@@ -199,20 +217,17 @@ export default function App() {
       }
     }
   }, []);
-  const dashboardSupervisorId = dashboard?.supervisor?.id;
-  useEffect(() => {
-    if (projectId && dashboardSupervisorId && !supervisorIsOpen(dashboardSupervisorId)) {
-      void loadSupervisor(dashboardSupervisorId, projectId);
-    }
-  }, [projectId, dashboardSupervisorId, supervisorIsOpen, loadSupervisor]);
   const [evolving, setEvolving] = useState<string | null>(null);
   useEffect(() => {
     currentProject.current = projectId;
+    conversationGeneration.current++;
+    loadingSupervisor.current = null;
     setDataProject(projectId);
     setStreamStart(null);
     clearSupervisor();
-    setChatMessages([]);
-    setHasMore(false);
+    setHistory(emptyHistory);
+    setLoadingEarlier(false);
+    setConversationLoading(!!projectId);
     setConversationError('');
     setDashboard(null);
     setDashboardError('');
@@ -223,8 +238,7 @@ export default function App() {
     const id = projectId;
     let stopped = false;
     localStorage.setItem('evo-project', id);
-    setConversationLoading(true);
-    void loadConversation(id, true)
+    void loadConversation(id)
       .catch((cause) => {
         if (!stopped) setConversationError(errorText(cause));
       })
@@ -318,21 +332,46 @@ export default function App() {
         event.data.visible === true &&
         (!event.agent_id || event.agent_id === supervisorRun.root_agent_id),
     );
-    if (visible.length) setChatMessages((old) => mergeBySeq(old, visible));
+    if (!visible.length) return;
+    setHistory((old) => {
+      if (old.firstSeq === null) return old;
+      // The run includes its complete history. Keep the project-level page boundary so
+      // earlier workflow messages can still be fetched in order alongside supervisor replies.
+      const firstSeq = old.firstSeq;
+      return {
+        ...old,
+        messages: mergeBySeq(
+          old.messages,
+          visible.filter((event) => event.seq >= firstSeq),
+        ),
+      };
+    });
   }, [supervisorEvents, supervisorRun?.root_agent_id]);
 
   async function earlierMessages() {
-    if (!projectId || !chatMessages.length) return;
+    const before = history.firstSeq;
+    if (!projectId || before === null || !history.hasMore || loadingEarlier) return;
+    const generation = conversationGeneration.current;
+    const sameProject = () =>
+      currentProject.current === projectId && conversationGeneration.current === generation;
+    setLoadingEarlier(true);
     try {
-      const page = await api<Conversation>(
-        `/projects/${projectId}/conversation?before=${chatMessages[0].seq}`,
-      );
-      if (currentProject.current !== projectId) return;
+      const page = await api<Conversation>(`/projects/${projectId}/conversation?before=${before}`);
+      if (!sameProject()) return;
       followMessages.current = false;
-      setChatMessages((old) => mergeBySeq(page.messages, old));
-      setHasMore(page.has_more);
+      setHistory((old) =>
+        old.firstSeq === before
+          ? {
+              messages: mergeBySeq(page.messages, old.messages),
+              firstSeq: page.messages[0]?.seq ?? before,
+              hasMore: page.has_more,
+            }
+          : old,
+      );
     } catch (cause) {
-      notify(errorText(cause), true);
+      if (sameProject()) notify(errorText(cause), true);
+    } finally {
+      if (sameProject()) setLoadingEarlier(false);
     }
   }
   useEffect(() => {
@@ -397,21 +436,21 @@ export default function App() {
       setSettingsModal(true);
       return;
     }
+    if (view !== 'conversation') focusComposer();
     setPendingSend({ projectId, text: message, after: chatMessages.at(-1)?.seq || 0 });
     setDraft('');
     followMessages.current = true;
     try {
-      const next = await post<Run>(`/projects/${projectId}/messages`, {
+      await post(`/projects/${projectId}/messages`, {
         message,
         new_assignment: view === 'conversation' && newAssignment,
       });
       if (currentProject.current === projectId) {
         setNewAssignment(false);
-        if (!supervisorIsOpen(next.id)) await loadSupervisor(next.id, projectId);
+        void refreshDashboard(projectId);
         await loadConversation(projectId).catch((cause) => {
           if (currentProject.current === projectId) notify(errorText(cause), true);
         });
-        void refreshDashboard(projectId);
       }
     } catch (cause) {
       if (currentProject.current === projectId) setDraft((current) => current || message);
@@ -544,7 +583,8 @@ export default function App() {
             agents={supervisorDetail?.agents || []}
             messages={chatMessages}
             pendingText={pendingText}
-            hasMore={hasMore}
+            hasMore={history.hasMore}
+            loadingEarlier={loadingEarlier}
             onEarlier={earlierMessages}
             streaming={streaming}
             draft={supervisorDraft}
@@ -562,10 +602,16 @@ export default function App() {
             <button
               className="text-button"
               onClick={() => {
-                if (projectId)
-                  void loadConversation(projectId, true).catch((cause) =>
-                    setConversationError(errorText(cause)),
-                  );
+                if (!projectId) return;
+                const generation = conversationGeneration.current;
+                void loadConversation(projectId).catch((cause) => {
+                  if (
+                    currentProject.current === projectId &&
+                    conversationGeneration.current === generation
+                  ) {
+                    setConversationError(errorText(cause));
+                  }
+                });
               }}
             >
               <RefreshCw size={14} />
@@ -660,6 +706,7 @@ export default function App() {
             {chatting && panelOpen && (
               <button
                 className="work-toggle dashboard-return"
+                aria-label="Dashboard"
                 onClick={() => changeView('workspace')}
               >
                 <ArrowLeft size={15} />
@@ -725,7 +772,10 @@ export default function App() {
                 mainName={mainName}
                 selectedRunId={runId}
                 hasConversation={!!chatMessages.length}
-                onConversation={() => changeView('conversation')}
+                onConversation={() => {
+                  changeView('conversation');
+                  focusComposer();
+                }}
                 onOpenRun={openWork}
                 onRefresh={() => void refreshDashboard(project.id)}
                 notify={notify}
