@@ -1,47 +1,44 @@
 # Talking to the main agent while it works
 
-Each repository has one main agent. One part of it, the **coordinator**, directs the team (Spec, Code, Test, QA, helpers) and is the only part that changes the work. You can write to it at any time.
+Each project has one persistent **supervisor** and a central conversation. Each workflow has its own
+**coordinator** that directs Spec, Code, Test, QA and helpers in an isolated worktree. Opening
+another project switches the conversation and its recorded evidence together.
 
-## What happens when you write mid-assignment
+## Asking, starting and steering
 
-1. **Accepted.** Your message is saved, shown in the conversation and queued for the coordinator right away. If you refresh or switch repositories, nothing is lost.
-2. **Quick reply.** If the coordinator is busy (in a model call, running a tool, or waiting for its team), a lightweight responder answers you as the same main agent. It works from the recorded state: the run, the team and their statuses, workflow handoffs and findings, recent events and the conversation. It can also look up history, specific events and memory pages, all read-only. The reply is labelled *while working*.
-3. **Read by the coordinator.** `agents.wait` returns as soon as a message arrives, so the coordinator picks it up at its next step without waiting for the team. Your message then shows *Read by <name>*. The coordinator is told about any quick reply already sent so it doesn't repeat it.
-4. **Applied.** Only the coordinator can act on an instruction (redirecting Code, adding a task, stopping a direction). The responder may say an instruction was *received and passed on*, never that it was *applied*. The coordinator confirms with `chat.reply` once it has actually done it.
+- Open **Project conversation** from the sidebar or use **Open chat** on **Dashboard**. Ask about
+  the repository or compare workflows. The supervisor gets a recent overview and can look up
+  original evidence by run or agent, including agent transcripts, events, handoffs, findings,
+  artifacts and implementation commits.
+- Select **New workflow** on the dashboard or **New assignment** in project chat to start work on
+  an independent branch. You can also explicitly ask the supervisor to start a workflow. The
+  scheduler starts queued work when the project has room. See [concurrency and
+  worktrees](workspace.md#concurrency-and-worktrees).
+- To steer, pause or resume from chat, name the workflow or include its run ID and say what should
+  happen. The supervisor can pass the instruction to that coordinator and look up its receipt.
+  Browsing a workflow or its agents leaves the chat aimed at the project supervisor.
 
-Identical wording in answer to two different questions is saved twice; only a repeated delivery of the same answer to the same message is dropped. A quick reply counts as an answer only once it is saved.
+API clients can route a message to one coordinator by supplying `run_id` in a `POST` to
+`/api/projects/{project_id}/messages` or by posting the message directly to
+`/api/projects/{project_id}/workflows/{run_id}/messages`.
 
-Answering a question never cancels or restarts work. The team keeps running throughout.
+## What happens when you message a working coordinator
 
-## What you see
+1. EVO saves the message, shows it in the conversation and queues it for that coordinator.
+2. While the coordinator is busy, a lightweight responder can answer from the current run, its
+   agents, workflow handoffs, findings, events and conversation. It can also read history and
+   memory. Its reply is labelled *while working*.
+3. The coordinator can pick up your message at its next step. An `agents.wait` call wakes when the
+   message arrives. The workflow records delivery once the coordinator reads it.
+4. The coordinator can use `chat.applied` to record an instruction as applied once it has made the
+   change. The confirmation can cite the workflow events that show what happened.
 
-- **Replies** to you are normal messages.
-- **Updates** are compact lines with a flag icon:
-  - phase changes, from the workflow records;
-  - failed verification, from Test or QA handoffs;
-  - high or critical findings;
-  - a team member stopping with an error.
+## Reading updates
 
-  They're batched over a couple of seconds and deduplicated, and each one links to the event that caused it. There are no "still working" messages.
-- **Questions and blockers** the coordinator raises with `chat.notify` are highlighted.
-- **Working text.** The coordinator's text next to tool calls is private narration. It shows as a faded preview while it streams and becomes a message only if it turns out to be the reply.
-
-## Remaining delay
-
-Measured live (`gpt-6.1-terra`, Responses API):
-- Scheduling the quick reply took about 10 ms.
-- The model's first text took 1.7–5.4 s, depending on whether the responder looked anything up.
-- The coordinator read the message within 10–730 ms of `agents.wait` waking.
-
-Nearly all of the remaining delay is model time. While the coordinator is inside a single long model call, it can't read your message until that call ends; the quick reply covers that gap.
-
-## Isolation
-
-The conversation, queue and replies are tied to the repository's run, so switching repositories while a request is pending can't mix replies. Repositories work independently; sends to the same repository are serialized.
-
-## Tools added for the coordinator
-
-- `chat.reply(text)` answers the user now.
-- `chat.notify(text, kind)` raises progress, a blocker or a question.
-
-Only the root main agent can use them; other agents report to their assigning agent.
+- Replies appear as normal messages. The workflow can post highlighted questions or blockers with
+  `chat.notify`.
+- Progress updates summarize workflow events such as a phase change, failed verification, high or
+  critical finding, or an agent error. Workflow attribution in project chat opens the source
+  workflow or agent.
+- Faded streaming text shows working narration. The agent's saved transcript and tool results are
+  available in the [trace inspector](workspace.md#agent-traces).
