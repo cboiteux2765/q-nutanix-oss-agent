@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from .common import redact
+from .common import redact, redact_all
 
 RAW_ITEMS = "_responses_items"
 # Client errors and rate limits: the request was rejected before the model ran.
@@ -64,6 +64,32 @@ class ModelResponse:
         if self.chat_reasoning:
             message["reasoning_content"] = self.chat_reasoning
         return message
+
+
+def transcript_payload(message: dict, secret: str) -> dict:
+    """Project a model message onto the readable transcript, without opaque replay state."""
+    readable = {name: message[name] for name in ("role", "content", "tool_calls", "tool_call_id")
+                if name in message}
+    reasoning = []
+    chat_reasoning = message.get("reasoning_content")
+    if isinstance(chat_reasoning, str) and chat_reasoning.strip():
+        reasoning.append({"kind": "content", "text": chat_reasoning})
+    for item in message.get(RAW_ITEMS) or []:
+        if not isinstance(item, dict) or item.get("type") != "reasoning":
+            continue
+        for field, part_type in (("summary", "summary_text"), ("content", "reasoning_text")):
+            parts = item.get(field)
+            if not isinstance(parts, list):
+                continue
+            for part in parts:
+                if not isinstance(part, dict) or part.get("type") != part_type:
+                    continue
+                text = part.get("text")
+                if isinstance(text, str) and text.strip():
+                    reasoning.append({"kind": field, "text": text})
+    return {"message": redact_all(readable, secret),
+            "reasoning": [{"kind": part["kind"], "text": redact(part["text"], secret)}
+                          for part in reasoning]}
 
 
 def responses_input(messages: list[dict]) -> tuple[str, list[dict]]:

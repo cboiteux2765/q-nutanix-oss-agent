@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from contextvars import ContextVar
 from datetime import datetime, UTC
 from uuid import uuid4
 
@@ -28,6 +29,7 @@ USAGE_FIELDS = ("input", "output", "cached", "cache_write", "unresolved", "cost_
 # Related milestones that arrive within this window are sent as one update.
 UPDATE_BATCH_SECONDS = 2.0
 MAX_CHAT_CHARS = 8_000
+_PYTHON_SPAN: ContextVar[tuple[str, str] | None] = ContextVar("python_span", default=None)
 
 
 class MessageArrived(RuntimeError):
@@ -655,7 +657,7 @@ class Runtime:
             key = get_api_key(settings)
             client = ModelProvider(settings, key)
             workspace = await asyncio.to_thread(self.workspaces.prepare_agent, agent_id)
-            self._repair_unfinished_tools(agent)
+            self._repair_unfinished_tools(agent, key)
             repl = await self._ensure_repl(agent, workspace, settings, key)
             for _ in range(settings["max_steps"]):
                 messages = await self._prepare_context(agent, client, settings)
@@ -670,17 +672,18 @@ class Runtime:
                     self._append_assistant(agent, message, text, key, visible=False)
                     raise RuntimeError(f"Provider stopped early ({response.finish_reason}).")
                 if not response.tool_calls and not text.strip():
+                    self._append_assistant(agent, message, text, key, visible=False)
                     raise RuntimeError("Provider returned an empty reply.")
                 # Text alongside tool calls is private working narration. A reply without tool calls
                 # reaches the conversation when it answers the user or ends the turn.
                 pending = bool(self._active_delegates(agent) or self._has_inbox(agent_id))
                 visible = talks_to_user and not response.tool_calls and (
                     agent_id in self.awaiting_reply or not pending)
-                self._append_assistant(agent, message, text, key, visible=visible)
+                message_event_id = self._append_assistant(agent, message, text, key, visible=visible)
                 if response.tool_calls:
                     self._check_budget(run["id"])
-                    for call in response.tool_calls:
-                        await self._tool_call(agent, call, repl, key)
+                    for index, call in enumerate(response.tool_calls):
+                        await self._tool_call(agent, call, repl, key, f"{message_event_id}.{index}")
                     continue
                 if await self._finish_turn(agent, run["id"], root, text):
                     return
@@ -766,31 +769,31 @@ class Runtime:
                         and self.awaiting_reply.get(agent["id"], ("",))[0] == item["event_id"]):
                     self.awaiting_reply.pop(agent["id"], None)
 
-    def _record(self, agent, message, event_id=None):
-        self.store.append_messages(agent["id"], [(message, event_id)])
+    def _record(self, agent, message, event_id=None, *, secret=None):
+        self.store.append_messages(agent["id"], [(message, event_id)], secret=secret)
 
     def _append_assistant(self, agent, message, text, key, *, visible):
         tool_calls = redact_all(message.get("tool_calls", []), key)
+        event = None
         if visible and text:
             event = self._post_visible(agent, text, channel="reply", tool_calls=tool_calls)
-            if event:
-                self._record(agent, message, event["id"])
-                return
-        event = self._event(agent, "message", role="assistant", text=text, visible=False,
-                            tool_calls=tool_calls)
-        self._record(agent, message, event["id"])
+        if event is None:
+            event = self._event(agent, "message", role="assistant", text=text, visible=False,
+                                tool_calls=tool_calls)
+        self._record(agent, message, event["id"], secret=key)
+        return event["id"]
 
-    def _repair_unfinished_tools(self, agent):
+    def _repair_unfinished_tools(self, agent, key):
         pending = {}
-        for message in self.store.messages(agent["id"]):
-            for call in message.get("tool_calls", []):
-                pending[call["id"]] = call["function"]["name"]
+        for message, event_id in self.store.messages(agent["id"], with_event_ids=True):
+            for index, call in enumerate(message.get("tool_calls", [])):
+                pending[call["id"]] = (call["function"]["name"], f"{event_id}.{index}" if event_id else None)
             if message["role"] == "tool":
                 pending.pop(message["tool_call_id"], None)
-        for call_id, name in pending.items():
+        for call_id, (name, span_id) in pending.items():
             self._record_result(agent, call_id, name, {
                 "error": "Tool was interrupted before its result was recorded. Check recorded effects before retrying.",
-            })
+            }, key, span_id)
 
     async def _call_model(self, agent, client, messages, tools, bound, call, **detail):
         """Make one model request under the run's token budget (and spending limit, if set).
@@ -950,26 +953,30 @@ class Runtime:
 
     async def _dispatch(self, agent, name, args, kwargs, key):
         arguments = redact_all({"args": args, "kwargs": kwargs}, key)
-        self._event(agent, "tool.started", name=name, arguments=arguments)
+        parent = _PYTHON_SPAN.get()
+        span = {"span_id": uuid4().hex, "parent_span_id": parent[1] if parent and parent[0] == agent["id"] else None}
+        self._event(agent, "tool.started", name=name, arguments=arguments, **span)
         before = require(self.store, "runs", agent["run_id"]).get("phase") if name.startswith("workflow.") else None
         try:
             result = await self.broker.dispatch(agent["id"], name, args, kwargs)
         except asyncio.CancelledError:
-            self._event(agent, "tool.finished", name=name, result={"error": "Interrupted."})
+            self._event(agent, "tool.finished", name=name, result={"error": "Interrupted."}, **span)
             raise
         except Exception as exc:
             result = {"error": redact(str(exc) or type(exc).__name__, key)}
-            self._event(agent, "tool.finished", name=name, result=result)
+            self._event(agent, "tool.finished", name=name, result=result, **span)
             raise
         result = redact_all(result, key)
-        self._event(agent, "tool.finished", name=name, result=self._bounded_result(agent, name, result))
+        bounded = self._bounded_result(agent, name, result, **span)
+        self._event(agent, "tool.finished", name=name, result=bounded, **span)
         if name.startswith("workflow."):
             self._milestones(agent, name, before, result)
         return result
 
-    async def _tool_call(self, agent, call, repl, key):
-        self._event(agent, "tool.started", name=call.name, call_id=call.id,
-                    arguments=redact(call.arguments, key))
+    async def _tool_call(self, agent, call, repl, key, span_id):
+        self._event(agent, "tool.started", name=redact(call.name, key), call_id=redact(call.id, key),
+                    arguments=redact(call.arguments, key), span_id=span_id, parent_span_id=None)
+        token = _PYTHON_SPAN.set((agent["id"], span_id))
         try:
             arguments = call.parsed_arguments()
             if call.name != "python":
@@ -980,17 +987,27 @@ class Runtime:
         except (ValueError, TypeError) as exc:
             result = {"error": redact(str(exc), key)}
         except asyncio.CancelledError:
-            self._record_result(agent, call.id, call.name, {"error": "Interrupted."})
+            self._record_result(agent, call.id, call.name, {"error": "Interrupted."}, key, span_id)
             raise
-        self._record_result(agent, call.id, call.name, result)
+        except Exception as exc:
+            self._record_result(agent, call.id, call.name, {"error": str(exc) or type(exc).__name__}, key, span_id)
+            raise
+        finally:
+            _PYTHON_SPAN.reset(token)
+        self._record_result(agent, call.id, call.name, result, key, span_id)
 
-    def _record_result(self, agent, call_id, name, result):
-        bounded = self._bounded_result(agent, name, result)
-        event = self._event(agent, "tool.finished", name=name, call_id=call_id, result=bounded)
-        self._record(agent, {"role": "tool", "tool_call_id": call_id,
-                             "content": json.dumps(bounded, ensure_ascii=True)}, event["id"])
+    def _record_result(self, agent, call_id, name, result, key, span_id):
+        name = redact(name, key)
+        span = {"span_id": span_id, "parent_span_id": None}
+        bounded = self._bounded_result(agent, name, redact_all(result, key), **span)
+        self.store.event(
+            agent["run_id"], agent["id"], "tool.finished",
+            {"name": name, "call_id": call_id, "result": bounded, **span},
+            message={"role": "tool", "tool_call_id": call_id, "content": json.dumps(bounded, ensure_ascii=True)},
+            secret=key,
+        )
 
-    def _bounded_result(self, agent, name, result):
+    def _bounded_result(self, agent, name, result, *, span_id, parent_span_id):
         """Keep small results inline; store large ones as artifacts and return a preview."""
         encoded = json.dumps(result, ensure_ascii=True, default=str)
         if len(encoded) <= INLINE_RESULT_CHARS:
@@ -1003,7 +1020,7 @@ class Runtime:
             )
             artifact_ids.append(metadata["id"])
         event = self._event(agent, "tool.output", name=name, artifact_ids=artifact_ids,
-                            characters=len(encoded))
+                            characters=len(encoded), span_id=span_id, parent_span_id=parent_span_id)
         return {"preview": encoded[:RESULT_PREVIEW_CHARS], "event_id": event["id"],
                 "artifact_ids": artifact_ids, "characters": len(encoded),
                 "note": "Use artifacts.read(id) for full output."}

@@ -12,9 +12,10 @@ from threading import RLock
 from typing import Any, Iterator
 from uuid import uuid4
 
-from .common import Conflict, NotFound
+from .common import Conflict, NotFound, redact_all
+from .providers import transcript_payload
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 # Record fields that list() filters on often enough to deserve an index.
 _INDEXED_FIELDS = ("run_id", "project_id", "parent_id")
 _FIELD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -97,16 +98,29 @@ class Store:
                 data TEXT NOT NULL,
                 PRIMARY KEY (agent_id, position)
             );
+            CREATE TABLE IF NOT EXISTS agent_transcript (
+                seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id TEXT NOT NULL,
+                event_id TEXT,
+                created_at TEXT,
+                source TEXT NOT NULL,
+                data TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS agent_transcript_seq ON agent_transcript(agent_id, seq);
+            CREATE TABLE IF NOT EXISTS legacy_transcripts (
+                agent_id TEXT PRIMARY KEY
+            );
             """ + indexes
         )
         self._migrate()
 
     def _migrate(self) -> None:
-        version = self._db.execute("PRAGMA user_version").fetchone()[0]
-        if version < 2:
-            # Version 1 kept each agent's messages inside its record and rewrote the whole history
-            # on every append. Move them to agent_messages.
-            with self._transaction() as db:
+        if self._db.execute("PRAGMA user_version").fetchone()[0] >= SCHEMA_VERSION:
+            return
+        with self._transaction() as db:
+            version = db.execute("PRAGMA user_version").fetchone()[0]
+            if version < 2:
+                # Version 1 held the entire working conversation inside each agent record.
                 rows = db.execute(
                     "SELECT id, data FROM records WHERE collection = 'agents' "
                     "AND json_type(data, '$.messages') IS NOT NULL"
@@ -124,9 +138,83 @@ class Store:
                     )
                     db.execute("UPDATE records SET data = ? WHERE collection = 'agents' AND id = ?",
                                (_encode(agent), row["id"]))
-        if version < SCHEMA_VERSION:
-            with self._lock:
-                self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            if version < 3:
+                self._backfill_transcripts(db)
+            if version < SCHEMA_VERSION:
+                db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+    def _backfill_transcripts(self, db: sqlite3.Connection) -> None:
+        for row in db.execute("SELECT id, created_at, data FROM records WHERE collection = 'agents'"):
+            agent_id = row["id"]
+            run_id = json.loads(row["data"]).get("run_id")
+            secret = self._run_secret(run_id)
+            # The legacy context may have lost entries with no linked event before the upgrade.
+            db.execute("INSERT INTO legacy_transcripts (agent_id) VALUES (?)", (agent_id,))
+            history = db.execute(
+                """
+                SELECT m.event_id, m.data, e.kind, e.data AS event_data, e.created_at
+                FROM agent_messages AS m
+                LEFT JOIN events AS e ON e.id = m.event_id AND e.run_id = ? AND e.agent_id = m.agent_id
+                WHERE m.agent_id = ? ORDER BY m.position
+                """,
+                (run_id, agent_id),
+            )
+            recovered = set()
+            for item in history:
+                if item["kind"] == "compaction":
+                    ids = json.loads(item["event_data"]).get("event_ids") or []
+                    for event in self._compacted_messages(db, run_id, agent_id, ids, recovered):
+                        message, event_id, created_at = event
+                        self._archive_message(db, agent_id, message, event_id, created_at, "legacy_event", secret)
+                    continue
+                message = json.loads(item["data"])
+                created_at = item["created_at"]
+                if created_at is None and message.get("role") == "system":
+                    created_at = row["created_at"]
+                self._archive_message(db, agent_id, message, item["event_id"], created_at,
+                                      "legacy_context", secret)
+
+    @staticmethod
+    def _compacted_messages(db, run_id, agent_id, event_ids, seen):
+        """Restore earlier messages named by a legacy checkpoint, including older checkpoints."""
+        pending = list(reversed(event_ids))
+        while pending:
+            event_id = pending.pop()
+            if not isinstance(event_id, str) or event_id in seen:
+                continue
+            seen.add(event_id)
+            row = db.execute(
+                "SELECT kind, data, created_at FROM events WHERE id = ? AND run_id = ? AND agent_id = ?",
+                (event_id, run_id, agent_id),
+            ).fetchone()
+            if row is None:
+                continue
+            data = json.loads(row["data"])
+            if row["kind"] == "compaction":
+                pending.extend(reversed(data.get("event_ids") or []))
+            elif row["kind"] == "message" and data.get("role"):
+                message = {"role": data["role"], "content": data.get("text", "")}
+                if data.get("tool_calls"):
+                    message["tool_calls"] = data["tool_calls"]
+                yield message, event_id, row["created_at"]
+            elif row["kind"] == "tool.finished" and data.get("call_id"):
+                message = {"role": "tool", "tool_call_id": data["call_id"],
+                           "content": json.dumps(data.get("result"), ensure_ascii=True)}
+                yield message, event_id, row["created_at"]
+
+    def _run_secret(self, run_id: str | None) -> str:
+        from .config import get_api_key
+
+        run = self.get("runs", run_id) if run_id else None
+        settings = (run or {}).get("settings_snapshot") or {}
+        return get_api_key(settings) if settings.get("base_url") else ""
+
+    @staticmethod
+    def _archive_message(db, agent_id, message, event_id, created_at, source, secret):
+        db.execute(
+            "INSERT INTO agent_transcript (agent_id, event_id, created_at, source, data) VALUES (?, ?, ?, ?, ?)",
+            (agent_id, event_id, created_at, source, _encode(transcript_payload(message, secret))),
+        )
 
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Connection]:
@@ -208,17 +296,46 @@ class Store:
                 "SELECT count(*) FROM agent_messages WHERE agent_id = ?", (agent_id,)
             ).fetchone()[0]
 
-    def append_messages(self, agent_id: str, items: list[tuple[dict, str | None]]) -> None:
+    def append_messages(self, agent_id: str, items: list[tuple[dict, str | None]], *,
+                        secret: str | None = None) -> None:
+        if not items:
+            return
         with self._transaction() as db:
-            start = db.execute(
-                "SELECT coalesce(max(position) + 1, 0) FROM agent_messages WHERE agent_id = ?",
-                (agent_id,),
-            ).fetchone()[0]
-            db.executemany(
-                "INSERT INTO agent_messages (agent_id, position, event_id, data) VALUES (?, ?, ?, ?)",
-                [(agent_id, start + index, event_id, _encode(message))
-                 for index, (message, event_id) in enumerate(items)],
-            )
+            if secret is None:
+                agent = self.get("agents", agent_id) or {}
+                secret = self._run_secret(agent.get("run_id"))
+            self._append_messages(db, agent_id, items, utc_now(), secret)
+
+    def _append_messages(self, db, agent_id, items, created_at, secret):
+        start = db.execute(
+            "SELECT coalesce(max(position) + 1, 0) FROM agent_messages WHERE agent_id = ?",
+            (agent_id,),
+        ).fetchone()[0]
+        db.executemany(
+            "INSERT INTO agent_messages (agent_id, position, event_id, data) VALUES (?, ?, ?, ?)",
+            [(agent_id, start + index, event_id, _encode(message))
+             for index, (message, event_id) in enumerate(items)],
+        )
+        for message, event_id in items:
+            self._archive_message(db, agent_id, message, event_id, created_at, "recorded", secret)
+
+    def transcript(self, agent_id: str, after: int = 0, limit: int = 100) -> list[dict]:
+        """Read the append-only transcript in insertion order."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT seq, event_id, created_at, source, data FROM agent_transcript "
+                "WHERE agent_id = ? AND seq > ? ORDER BY seq LIMIT ?",
+                (agent_id, after, limit),
+            ).fetchall()
+        return [{"seq": row["seq"], "event_id": row["event_id"], "created_at": row["created_at"],
+                 "source": row["source"], **json.loads(row["data"])} for row in rows]
+
+    def transcript_completeness(self, agent_id: str) -> str:
+        with self._lock:
+            legacy = self._db.execute(
+                "SELECT 1 FROM legacy_transcripts WHERE agent_id = ?", (agent_id,)
+            ).fetchone()
+        return "legacy_partial" if legacy else "complete"
 
     def replace_messages(self, agent_id: str, items: list[tuple[dict, str | None]]) -> None:
         with self._transaction() as db:
@@ -229,10 +346,17 @@ class Store:
                  for index, (message, event_id) in enumerate(items)],
             )
 
-    def event(self, run_id: str, agent_id: str | None, kind: str, data: dict) -> dict:
+    def event(self, run_id: str, agent_id: str | None, kind: str, data: dict, *,
+              message: dict | None = None, secret: str | None = None) -> dict:
+        """Record an event, optionally committing its agent message in the same transaction."""
+        if message is not None and agent_id is None:
+            raise ValueError("An agent message requires an agent ID.")
         id = uuid4().hex
         created_at = utc_now()
         with self._transaction() as db:
+            if secret is None:
+                secret = self._run_secret(run_id)
+            data = redact_all(data, secret)
             cursor = db.execute(
                 """
                 INSERT INTO events (id, run_id, agent_id, kind, data, created_at)
@@ -240,6 +364,8 @@ class Store:
                 """,
                 (id, run_id, agent_id, kind, _encode(data), created_at),
             )
+            if message is not None:
+                self._append_messages(db, agent_id, [(message, id)], created_at, secret)
         return {"id": id, "seq": cursor.lastrowid, "run_id": run_id, "agent_id": agent_id,
                 "kind": kind, "data": data, "created_at": created_at}
 
