@@ -1,0 +1,60 @@
+.sidebar {
+  overflow-y: auto;
+}
+
+.sidebar > * {
+  flex-shrink: 0;
+}
+
+.sidebar .brand {
+  margin-inline: 4px;
+}
+
+.sidebar-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.9px;
+}
+
+.sidebar-brand-link:hover {
+  background: var(--hover);
+}
+
+.sidebar .agent-roster {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+
+.sidebar-phase-chevron {
+  color: var(--muted);
+}
+
+.crew-link.selected .sidebar-phase-chevron {
+  color: var(--accent);
+}
+
+@media (width > 640px) {
+  .sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand > .sidebar-collapse,
+  .icon-button.sidebar-expand {
+    display: none;
+  }
+
+  .sidebar .brand > .mobile-menu {
+    margin-left: auto;
+  }
+}

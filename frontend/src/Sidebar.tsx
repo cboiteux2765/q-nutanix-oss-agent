@@ -3,12 +3,13 @@ import {
   Bot,
   Check,
   ChevronDown,
+  ChevronRight,
   ClipboardList,
   Code2,
   FileCheck2,
   FlaskConical,
   FolderGit2,
-  LayoutDashboard,
+  PanelLeftClose,
   Plus,
   Settings2,
   ShieldCheck,
@@ -18,8 +19,10 @@ import {
 } from 'lucide-react';
 import { Logo, Status } from './components';
 import { ACTIVE_STATES, type Agent, type Project, type Settings } from './types';
+import './Sidebar.css';
 
-export type View = 'workspace' | 'conversation' | 'memory' | 'skills' | 'evolution' | 'spec';
+export type View =
+  'workspace' | 'conversation' | 'agents' | 'memory' | 'skills' | 'evolution' | 'spec';
 
 export const RESOURCE_TABS = [
   { id: 'memory' as View, label: 'Memory', icon: BookOpen },
@@ -38,6 +41,8 @@ const CORE_ROLES = [
 type Props = {
   open: boolean;
   onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   projects: Project[];
   project: Project | null;
   projectMenu: boolean;
@@ -54,6 +59,8 @@ type Props = {
   onMainAgent: () => void;
   onConfigureAgent: () => void;
   agents: Agent[];
+  historyRole: string | null;
+  onPhaseHistory: (role: string) => void;
   /** The team member whose work is open, if any. */
   openAgentId: string | null;
   onOpenAgent: (id: string) => void;
@@ -66,26 +73,46 @@ type Props = {
 export default function Sidebar(props: Props) {
   const { project, projects, projectMenu, setProjectMenu, view, active, settings } = props;
   const crew = props.agents.filter((a) => a.role !== 'orchestrator');
-  const helperRoles = Array.from(
-    new Set(crew.map((a) => a.role).filter((r) => !CORE_ROLES.some((slot) => slot.role === r))),
+  const helperRoles = new Set(
+    crew
+      .map((agent) => agent.role)
+      .filter((role) => !CORE_ROLES.some((slot) => slot.role === role)),
   );
-  const roleSlots = [
-    ...CORE_ROLES,
-    ...helperRoles.map((role) => ({
-      role,
-      name: 'Helper',
-      description: 'Specialist support',
-      icon: Bot,
-    })),
-  ];
   return (
-    <aside className={`sidebar ${props.open ? 'open' : ''}`} aria-label="Sidebar">
+    <aside
+      id="workspace-sidebar"
+      className={`sidebar ${props.open ? 'open' : ''} ${props.collapsed ? 'collapsed' : ''}`}
+      aria-label="Sidebar"
+    >
       <div className="brand">
-        <Logo small />
-        <span>evo</span>
         <button
+          type="button"
+          className="sidebar-brand-link"
+          aria-label="Go to dashboard"
+          aria-current={view === 'workspace' ? 'page' : undefined}
+          title="Go to dashboard"
+          onClick={() => props.onView('workspace')}
+        >
+          <Logo small />
+          <span>evo</span>
+        </button>
+        <button
+          type="button"
+          className="icon-button sidebar-collapse"
+          aria-label="Collapse sidebar"
+          aria-controls="workspace-sidebar"
+          aria-expanded={!props.collapsed}
+          title="Collapse sidebar"
+          onClick={props.onToggleCollapse}
+        >
+          <PanelLeftClose size={18} />
+        </button>
+        <button
+          type="button"
           className="icon-button mobile-menu"
           aria-label="Close sidebar"
+          aria-controls="workspace-sidebar"
+          aria-expanded={props.open}
           onClick={props.onClose}
         >
           <X size={18} />
@@ -127,18 +154,6 @@ export default function Sidebar(props: Props) {
           </div>
         )}
       </div>
-      {!!project && (
-        <nav className="sidebar-nav workspace-navigation" aria-label="Workspace">
-          <button
-            className={view === 'workspace' ? 'active' : ''}
-            aria-current={view === 'workspace' ? 'page' : undefined}
-            onClick={() => props.onView('workspace')}
-          >
-            <LayoutDashboard size={16} />
-            <span>Dashboard</span>
-          </button>
-        </nav>
-      )}
       <div className="main-agent-nav">
         <button
           className={`main-agent-link ${props.mainSelected ? 'selected' : ''}`}
@@ -167,47 +182,60 @@ export default function Sidebar(props: Props) {
         {crew.some((agent) => ACTIVE_STATES.includes(agent.status)) && <span>Working</span>}
       </div>
       <nav className="agent-roster" aria-label="Agents">
-        {roleSlots.map((slot) => {
-          const members = crew.filter((a) => a.role === slot.role);
-          return members.length ? (
-            members.map((a, index) => (
-              <button
-                key={a.id}
-                className={`crew-link ${props.openAgentId === a.id ? 'selected' : ''}`}
-                onClick={() => props.onOpenAgent(a.id)}
-                title={a.task}
-              >
-                <span className="crew-icon" data-role={slot.role}>
-                  <slot.icon size={17} />
-                </span>
-                <span>
-                  <strong>
-                    {slot.name}
-                    {members.length > 1 ? ` ${index + 1}` : ''}
-                  </strong>
-                  <small>
-                    {ACTIVE_STATES.includes(a.status)
-                      ? 'Working on it'
-                      : a.status === 'completed'
-                        ? 'Work completed'
-                        : a.status}
-                  </small>
-                </span>
-                <Status status={a.status} compact />
-              </button>
-            ))
-          ) : (
-            <div key={slot.role} className="crew-link idle">
-              <span className="crew-icon" data-role={slot.role}>
-                <slot.icon size={17} />
+        {CORE_ROLES.map(({ role, name, description, icon: Icon }) => {
+          const working = crew.filter(
+            (agent) => agent.role === role && ACTIVE_STATES.includes(agent.status),
+          ).length;
+          const selected = view === 'agents' && props.historyRole === role;
+          return (
+            <button
+              key={role}
+              type="button"
+              className={`crew-link ${selected ? 'selected' : ''}`}
+              aria-label={`${name} agent history`}
+              aria-describedby={`sidebar-phase-${role}-status`}
+              aria-current={selected ? 'page' : undefined}
+              onClick={() => props.onPhaseHistory(role)}
+              title={`View ${name} agent history`}
+            >
+              <span className="crew-icon" data-role={role}>
+                <Icon size={17} />
               </span>
               <span>
-                <strong>{slot.name}</strong>
-                <small>{slot.description}</small>
+                <strong>{name}</strong>
+                <small id={`sidebar-phase-${role}-status`}>
+                  {working ? `${working} active` : description}
+                </small>
               </span>
-              <span className="idle-dot" />
-            </div>
+              <ChevronRight className="sidebar-phase-chevron" size={14} aria-hidden="true" />
+            </button>
           );
+        })}
+        {Array.from(helperRoles, (role) => {
+          const members = crew.filter((agent) => agent.role === role);
+          return members.map((agent, index) => (
+            <button
+              key={agent.id}
+              className={`crew-link ${props.openAgentId === agent.id ? 'selected' : ''}`}
+              onClick={() => props.onOpenAgent(agent.id)}
+              title={agent.task}
+            >
+              <span className="crew-icon" data-role={role}>
+                <Bot size={17} />
+              </span>
+              <span>
+                <strong>Helper{members.length > 1 ? ` ${index + 1}` : ''}</strong>
+                <small>
+                  {ACTIVE_STATES.includes(agent.status)
+                    ? 'Working on it'
+                    : agent.status === 'completed'
+                      ? 'Work completed'
+                      : agent.status}
+                </small>
+              </span>
+              <Status status={agent.status} compact />
+            </button>
+          ));
         })}
       </nav>
       <div className="sidebar-bottom">
