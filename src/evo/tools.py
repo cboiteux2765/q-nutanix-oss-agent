@@ -32,7 +32,8 @@ _SHELL_RETENTION_BYTES = 64 * 1024 * 1024
 _SHELL_CHUNK_BYTES = 1024 * 1024
 
 _SUPERVISOR_READ_TOOLS = {
-    "repo.list", "repo.read", "repo.search", "repo.status",
+    "repo.list", "repo.read", "repo.search", "repo.status", "repo.diff",
+    "github.issue", "github.pr", "web.search", "web.fetch", "skills.list", "skills.read",
     "history.search", "history.read", "history.trace", "history.expand",
     "memory.list", "memory.read", "memory.history", "artifacts.read",
 }
