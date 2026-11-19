@@ -174,7 +174,7 @@ export function MessageList({
                 <Flag size={13} />
               )}
               <div className="update-content">
-                <MarkdownText>{text}</MarkdownText>
+                <MarkdownText images={notice !== 'proactive'}>{text}</MarkdownText>
                 <WorkflowSource event={e} onOpen={onOpenSource} />
               </div>
               <time>{timeLabel(e.created_at)}</time>

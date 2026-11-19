@@ -81,6 +81,20 @@ def test_cross_origin_writes_are_rejected(client):
     assert response.status_code == 403
 
 
+def test_scoped_artifact_reads_redact_credentials_without_changing_evidence(client, project, monkeypatch):
+    secret = "workspace-artifact-secret"
+    monkeypatch.setenv("EVO_ARTIFACT_TEST_KEY", secret)
+    settings = TEST_SETTINGS | {"api_key_env": "EVO_ARTIFACT_TEST_KEY"}
+    client.app.state.store.put("runs", "artifact-run", {
+        "project_id": project["id"], "settings_snapshot": settings,
+    })
+    metadata = client.app.state.artifacts.write("artifact-run", None, "Evidence", f"Output: {secret}")
+    result = client.get(f"/api/projects/{project['id']}/artifacts/{metadata['id']}")
+    assert result.status_code == 200
+    assert secret not in result.text and result.json()["redacted"] is True
+    assert client.app.state.artifacts.read(metadata["id"])["content"] == f"Output: {secret}"
+
+
 def test_evolution_endpoints(client, project):
     overview = client.get(f"/api/projects/{project['id']}/evolution").json()
     assert overview["settings"]["mode"] == "manual"

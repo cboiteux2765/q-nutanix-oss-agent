@@ -111,6 +111,13 @@ before selecting **Start workflow**. `local_auto` is a saved mode for future loc
 this release it also produces suggestions and waits for your direction. The monitor uses read-only
 GitHub calls. You review and integrate local work yourself.
 
+When the configured model and project budget are available, EVO makes one bounded, tool-free
+analysis request for a new suggestion. It compares the captured activity with visible workflow
+summaries, identifies a possible next step, and states an evidence gap. Inputs, responses, usage
+and provider-exposed reasoning are saved in the supervisor trace. Delivery retries reuse the saved
+analysis. If analysis is unavailable, interrupted or the supervisor is busy, the notice identifies
+that limitation and presents the captured facts. Neither path starts a coding workflow.
+
 Polling runs in the EVO server process. The browser can be closed while the server is running. If
 the computer sleeps or EVO stops, polling resumes on the next server start subject to the saved
 settings and cursors. For continuous operation, keep one EVO process running on an always-on machine

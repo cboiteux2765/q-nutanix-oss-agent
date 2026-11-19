@@ -34,12 +34,13 @@ export function Logo({ small = false }: { small?: boolean }) {
     </span>
   );
 }
-export function MarkdownText({ children }: { children: string }) {
+export function MarkdownText({ children, images = true }: { children: string; images?: boolean }) {
   return (
     <div className="markdown">
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
+          ...(!images ? { img: ({ alt }: { alt?: string }) => <span>{alt || 'Image'}</span> } : {}),
           a: ({ children, ...props }) => (
             <a {...props} target="_blank" rel="noreferrer">
               {children}

@@ -453,6 +453,18 @@ def test_first_proactive_suggestion_creates_central_message_without_workflow(wor
     issues = []
     requests = []
 
+    async def analyze(messages):
+        evidence = json.loads(_user(messages))
+        event = evidence["events"][0]
+        return reply(json.dumps({
+            "assessment": f"New issue: {event['title']}",
+            "next_step": "Review the requested documentation example before starting a workflow.",
+            "evidence_gap": "The relevant documentation has not been inspected.",
+            "event_ids": [event["id"]],
+        }))
+
+    handler["complete"] = analyze
+
     async def fake_get(self, target, *, etag=None):
         path = urlsplit(target).path
         requests.append(path)
@@ -496,7 +508,9 @@ def test_first_proactive_suggestion_creates_central_message_without_workflow(wor
     assert dashboard["workflows"] == _ok(client.get(f"{project}/workflows")) == []
     assert _chat(client, other_project)["messages"] == []
     assert _ok(client.get(f"{other_project}/activity"))["suggestions"] == []
-    assert not handler.get("calls")
+    assert message["data"]["analysis_status"] == "analyzed"
+    assert len(handler["calls"]) == 1
+    assert "Analyze the captured GitHub activity" in handler["calls"][0][0]
 
 
 def test_dashboard_and_workflow_settings_are_scoped_to_each_project(workspace):

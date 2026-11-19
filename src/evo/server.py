@@ -25,6 +25,7 @@ from .evolve.tasks import task_python, replay_dir
 from .providers import ModelProvider, ProviderError
 from .runtime import Runtime
 from . import speclab
+from .activity_analysis import ActivityAnalyzer
 from .proactivity import ProactivityService
 from .scheduler import WorkflowScheduler
 from .supervisor import SupervisorService
@@ -264,11 +265,11 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
             runtime.reconcile_reservations()  # in-flight requests from a previous process
             app.state.store = store
             app.state.runtime = runtime
-            app.state.workspace_locks = {}
             app.state.scheduler = WorkflowScheduler(runtime)
             runtime.scheduler = app.state.scheduler
             app.state.supervisor = SupervisorService(runtime)
-            app.state.proactivity = ProactivityService(store, on_suggestion=app.state.supervisor.suggest)
+            app.state.activity_analysis = ActivityAnalyzer(runtime, app.state.supervisor)
+            app.state.proactivity = ProactivityService(store, on_suggestion=app.state.activity_analysis.suggest)
             runtime.proactivity = app.state.proactivity
             app.state.knowledge = runtime.knowledge
             app.state.skills = runtime.skills
@@ -422,7 +423,7 @@ def create_app(data_dir: Path | None = None, frontend_dir: Path | None = None,
         messages = app.state.store.project_messages(project["id"], limit=101, before=before)
         return {"main_agent": project_view(project)["main_agent"],
                 "run_id": latest["id"] if latest else None,
-                 "supervisor_run_id": supervisor["id"] if supervisor else None,
+                "supervisor_run_id": supervisor["id"] if supervisor else None,
                 "messages": messages[-100:], "has_more": len(messages) > 100}
 
     @app.post("/api/projects/{project_id}/messages")

@@ -7,8 +7,9 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from .proactivity import SUGGESTIONS
-from .store import require
+from .common import redact_all
+from .config import get_api_key
+
 
 
 Message = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100_000)]
@@ -84,42 +85,24 @@ def router(project_dep):
         record = request.app.state.store.get("artifacts", artifact_id)
         if not record or record.get("project_id") != project["id"]:
             raise HTTPException(404, "Artifact not found.")
-        return request.app.state.artifacts.read(artifact_id)
+        payload = request.app.state.artifacts.read(artifact_id)
+        run = request.app.state.store.get("runs", record["run_id"]) or {}
+        settings = run.get("settings_snapshot") or {}
+        if settings.get("base_url") and (secret := get_api_key(settings)):
+            clean = redact_all(payload, secret)
+            if clean != payload:
+                return clean | {"redacted": True}
+        return payload
 
     @api.post("/workflows", status_code=201)
     async def start_workflow(request: Request, project: project_dep, body: WorkflowInput):
         if body.source and len(json.dumps(body.source)) > 16_000:
             raise ValueError("Workflow source context must be 16 KB or smaller.")
-        # Repeated clicks on a suggestion reuse its workflow. The lock covers the
-        # creation and association, including requests arriving simultaneously.
-        lock = request.app.state.workspace_locks.setdefault(project["id"], asyncio.Lock())
-        async with lock:
-            source = {name: value for name, value in (body.source or {}).items()
-                      if name in {"suggestion_id", "repository", "issue_number", "pr_number", "url", "subject"}}
-            suggestion_id = source.get("suggestion_id")
-            activity = request.app.state.proactivity
-            if suggestion_id:
-                suggestion = require(request.app.state.store, SUGGESTIONS, suggestion_id)
-                if (suggestion["project_id"] != project["id"]
-                        or suggestion["repository"] != activity.settings(project["id"])["repository"]):
-                    raise ValueError("Suggestion does not belong to this project's current repository.")
-                if suggestion.get("run_id"):
-                    request.app.state.supervisor.status(project["id"], suggestion["run_id"])
-                    return require(request.app.state.store, "runs", suggestion["run_id"])
-                # Recover a creation whose process stopped before association.
-                prior = next((run for run in request.app.state.store.list("runs", project_id=project["id"])
-                              if not run.get("evaluation") and run.get("kind", "workflow") == "workflow"
-                              and (run.get("source") or {}).get("suggestion_id") == suggestion_id), None)
-                if prior:
-                    activity.associate_workflow(project["id"], suggestion_id, prior["id"])
-                    return prior
-                source = {"suggestion_id": suggestion_id, "repository": suggestion["repository"],
-                          "subject": suggestion["subject"], "source_urls": suggestion.get("source_urls", []),
-                          "event_ids": suggestion.get("event_ids", [])}
-            run = await request.app.state.scheduler.start(project["id"], body.message, source=source or None)
-            if suggestion_id:
-                activity.associate_workflow(project["id"], suggestion_id, run["id"])
-            return run
+        source = {name: value for name, value in (body.source or {}).items()
+                  if name in {"suggestion_id", "repository", "issue_number", "pr_number", "url", "subject"}}
+        if suggestion_id := source.get("suggestion_id"):
+            return await request.app.state.supervisor.start_suggestion(project["id"], suggestion_id, body.message)
+        return await request.app.state.scheduler.start(project["id"], body.message, source=source or None)
 
     @api.get("/workflows/{run_id}")
     async def workflow(request: Request, project: project_dep, run_id: str):

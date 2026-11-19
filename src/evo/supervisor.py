@@ -77,6 +77,9 @@ class SupervisorService:
                     agent, "message", role="assistant", visible=True, channel="update", notice="proactive",
                     text=self._suggestion_text(suggestion), suggestion_id=suggestion_id,
                     sources=suggestion.get("source_urls", []), activity_event_ids=suggestion.get("event_ids", []),
+                    analysis_status=suggestion.get("analysis_status"),
+                    analysis_event_id=suggestion.get("analysis_event_id"),
+                    analysis_record_id=suggestion.get("analysis_record_id"),
                 )
             return self.store.put("supervisor_suggestions", f"{project_id}:{suggestion_id}", {
                 "project_id": project_id, "event_id": previous["id"], "run_id": supervisor["id"],
