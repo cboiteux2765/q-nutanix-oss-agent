@@ -189,6 +189,17 @@ def check_draft(draft, sources):
                          f"{len(errors)} problems: " + " | ".join(errors))
 
 
+def implementation_blockers(draft):
+    """Return the outstanding items in a structurally valid draft."""
+    blockers = [str(question) for question in draft["unresolved_questions"]]
+    for key, label in (("scope", "scope"), ("requirements", "requirements"),
+                       ("acceptance_tests", "observable acceptance criteria"),
+                       ("work_items", "work items"), ("timeline", "implementation milestones")):
+        if not draft[key]:
+            blockers.append(f"Provide {label} before implementation.")
+    return blockers
+
+
 def demo_draft(payload):
     """An honest placeholder to exercise the pipeline, not an AI-generated spec."""
     draft = {key: [] if value["type"] == "array" else "Not assessed in offline demo."
@@ -200,14 +211,10 @@ def demo_draft(payload):
     return draft
 
 
-def write_artifacts(run, payload, draft, metadata, output):
-    check_draft(draft, payload["sources"])
-    run_id = str(uuid4())
-    directory = output / run_id
-    context = run["input"]
-    lines = [f"# Product spec: {context['title']}", "", "Status: DRAFT — not approved or verified.",
-             f"Mode: {metadata['mode']}", f"Repository: {context['repo']}",
-             f"Base commit: `{context['source_commit']}`", ""]
+def render_spec(draft, payload, mode, status="DRAFT — not approved or verified."):
+    lines = [f"# Product spec: {payload['title']}", "", f"Status: {status}",
+             f"Mode: {mode}", f"Repository: {payload['repo']}",
+             f"Base commit: `{payload['commit']}`", ""]
     for key, value in draft.items():
         lines.extend([f"## {key.replace('_', ' ').title()}", ""])
         if isinstance(value, str):
@@ -233,7 +240,15 @@ def write_artifacts(run, payload, draft, metadata, output):
             else:
                 lines.append(value)
             lines.append('')
-    spec = ("\n".join(lines) + "\n").encode("utf-8")
+    return "\n".join(lines) + "\n"
+
+
+def write_artifacts(run, payload, draft, metadata, output):
+    check_draft(draft, payload["sources"])
+    run_id = str(uuid4())
+    directory = output / run_id
+    context = run["input"]
+    spec = render_spec(draft, payload, metadata["mode"]).encode("utf-8")
     handoff = {"schema_version": "0.1-draft", "spec_id": f"SPEC-{context['issue_number']}-{run_id}",
                "issue": {"repo": context["repo"], "number": context["issue_number"]},
                "base_commit": context["source_commit"], "status": "DRAFT", "mode": metadata["mode"],

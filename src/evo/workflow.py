@@ -7,6 +7,7 @@ from threading import RLock
 from uuid import uuid4
 
 from .common import MAX_TEXT_BYTES
+from .specification import Specification
 from .store import Store, require
 from .workspaces import git, safe_path
 
@@ -55,12 +56,14 @@ class ArtifactStore:
 class Workflow:
     def __init__(self, store: Store):
         self.store = store
+        self.specification = Specification(store, ArtifactStore(store), _LOCK)
         self.test_stage = None
 
     def status(self, run_id: str) -> dict:
         run = require(self.store, "runs", run_id)
-        return {key: run.get(key) for key in ("phase", "base_commit", "implementation_commit",
-                                              "writer_agent_id")} | {
+        return {key: run.get(key) for key in ("phase", "base_commit", "implementation_commit", "writer_agent_id",
+                                             "spec_base_commit", "spec_schema_version", "specification_artifact_id",
+                                             "specification_status")} | {
             "handoffs": self.store.list("workflow_handoffs", run_id=run_id),
             "findings": self.store.list("workflow_findings", run_id=run_id),
         }
@@ -81,6 +84,8 @@ class Workflow:
         self._evidence(run_id, artifacts)
         with _LOCK:
             run = require(self.store, "runs", run_id)
+            if role == "spec" and target == "code":
+                self.specification.verify_handoff(run, agent_id, artifacts)
             if commit is not None and commit != run.get("implementation_commit"):
                 raise ValueError("Handoff commit must match the published implementation commit.")
             if role in {"test", "qa"} and commit and commit != agent.get("workspace_commit"):
@@ -119,6 +124,8 @@ class Workflow:
                     "phase": "spec", "workflow_round": run.get("workflow_round", 1) + 1,
                     "tested_commit": None, "verified_commit": None,
                     "previous_implementation_commit": run.get("implementation_commit"),
+                    "spec_base_commit": run.get("implementation_commit"),
+                    "specification_artifact_id": None, "specification_status": None,
                 })
                 self.store.event(run["id"], agent_id, "workflow.phase", {
                     "previous": current, "phase": phase,
@@ -140,8 +147,10 @@ class Workflow:
                 raise ValueError("The root agent can resume the phase where the run was blocked.")
             if repair and (not evidence or evidence["passed"] is not False):
                 raise ValueError("Returning to Code requires a failed verification handoff.")
-            if forward and current == "spec" and (not evidence or not evidence["artifacts"]):
-                raise ValueError("Specification handoff must attach a specification artifact.")
+            if forward and current == "spec":
+                if not evidence or not evidence["artifacts"]:
+                    raise ValueError("Specification handoff must attach a specification artifact.")
+                self.specification.verify_handoff(run, evidence["agent_id"], evidence["artifacts"])
             commit = run.get("implementation_commit")
             if (forward and current in {"code", "test", "qa"}) or repair:
                 if not commit or not evidence or evidence["commit"] != commit:
