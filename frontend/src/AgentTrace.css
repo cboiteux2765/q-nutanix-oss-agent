@@ -1,0 +1,517 @@
+.agent-trace-open {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid #dae8fc;
+  border-radius: 8px;
+  background: var(--sage);
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.agent-trace-open:hover {
+  background: #e4efff;
+}
+
+.agent-trace-open svg:last-child {
+  margin-left: auto;
+}
+
+.agent-trace-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(960px, calc(100vw - 48px));
+  height: min(880px, calc(100dvh - 48px));
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 24px 90px #1723352b;
+}
+
+.agent-trace-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-trace-dialog::backdrop {
+  background: #20293758;
+}
+
+.trace-header,
+.trace-toolbar,
+.trace-footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 24px;
+}
+
+.trace-header {
+  padding-block: 19px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trace-identity,
+.trace-header-actions,
+.trace-controls,
+.trace-views,
+.trace-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trace-identity {
+  gap: 13px;
+  min-width: 0;
+}
+
+.trace-identity > div {
+  min-width: 0;
+}
+
+.trace-identity h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.22;
+}
+
+.trace-identity h2,
+.trace-identity p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-identity p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trace-identity p span {
+  margin-inline: 3px;
+}
+
+.trace-agent-icon,
+.trace-row-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  background: var(--sage);
+  color: var(--forest);
+}
+
+.trace-agent-icon {
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+}
+
+.trace-header-actions {
+  gap: 8px;
+}
+
+.trace-download {
+  white-space: nowrap;
+}
+
+.trace-toolbar {
+  min-width: 0;
+  padding-block: 11px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trace-views {
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--sidebar);
+}
+
+.trace-views button {
+  display: inline-flex;
+  min-height: 33px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trace-views button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--forest);
+  box-shadow: 0 1px 3px #16213314;
+}
+
+.trace-views button:hover {
+  color: var(--forest);
+}
+
+.trace-controls {
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 8px;
+}
+
+.trace-search {
+  position: relative;
+  display: block;
+  width: min(28vw, 245px);
+}
+
+.trace-search svg {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  color: var(--muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.trace-search input,
+.trace-controls select {
+  min-height: 35px;
+  padding-block: 6px;
+  font-size: 12px;
+}
+
+.trace-search input {
+  padding-left: 32px;
+}
+
+.trace-controls select {
+  width: auto;
+  max-width: 147px;
+}
+
+.trace-controls .icon-button {
+  flex: none;
+  width: 35px;
+  height: 35px;
+}
+
+.trace-notice {
+  flex: none;
+  padding: 9px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--sidebar);
+  color: #555c69;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.trace-notice[role='alert'] {
+  color: #aa3737;
+}
+
+.trace-scroll {
+  flex: 1;
+  padding-inline: 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.trace-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: start;
+  gap: 13px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.trace-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--sidebar);
+  color: #596373;
+}
+
+.trace-row[data-role='assistant'] .trace-row-icon {
+  background: var(--sage);
+  color: var(--forest);
+}
+
+.trace-row-content {
+  min-width: 0;
+}
+
+.trace-row-heading,
+.trace-event > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 30px;
+  overflow-wrap: anywhere;
+}
+
+.trace-row-meta {
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.trace-event {
+  padding-top: 3px;
+}
+
+.trace-event > summary {
+  align-items: start;
+}
+
+.trace-event-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+}
+
+.trace-event-label small,
+.trace-no-reasoning {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.trace-row-content > .markdown {
+  margin-bottom: 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.trace-row-content > details + .trace-no-reasoning {
+  display: block;
+  margin-top: 8px;
+}
+
+.trace-event > summary,
+.trace-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.trace-event > summary::-webkit-details-marker,
+.trace-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.trace-event > summary:focus-visible,
+.trace-disclosure > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.trace-event[open] > summary .trace-row-meta svg {
+  transform: rotate(90deg);
+}
+
+.trace-disclosure {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.trace-disclosure > summary {
+  display: flex;
+  min-height: 35px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  color: #465566;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.trace-disclosure > summary:hover {
+  background: var(--sidebar);
+}
+
+.trace-disclosure > summary::before {
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  margin-left: 1px;
+  border-top: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.trace-disclosure[open] > summary::before {
+  transform: translateY(-1px) rotate(135deg);
+}
+
+.trace-disclosure summary code,
+.trace-count {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.trace-detail-body {
+  min-width: 0;
+  padding: 0 8px 8px;
+}
+
+.trace-detail-body > .markdown {
+  padding: 3px 7px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.trace-code {
+  max-height: 440px;
+  margin: 0;
+  padding: 11px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #f5f7fa;
+  color: #394458;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.trace-inline-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 4px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.trace-load-error,
+.trace-pagination,
+.trace-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 10px;
+}
+
+.trace-empty {
+  min-height: 120px;
+  color: var(--muted);
+}
+
+.trace-load-error {
+  color: #aa3737;
+  overflow-wrap: anywhere;
+}
+
+.trace-footer {
+  padding-block: 10px;
+  border-top: 1px solid var(--line);
+  background: #fafbfc;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 680px) {
+  .agent-trace-dialog {
+    width: 100%;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .trace-header,
+  .trace-toolbar,
+  .trace-footer,
+  .trace-notice {
+    padding-inline: 14px;
+  }
+
+  .trace-scroll {
+    padding-inline: 14px;
+  }
+
+  .trace-header {
+    gap: 8px;
+  }
+
+  .trace-identity {
+    gap: 8px;
+  }
+
+  .trace-identity h2 {
+    font-size: 17px;
+  }
+
+  .trace-identity .status {
+    display: none;
+  }
+
+  .trace-agent-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+  }
+
+  .trace-header-actions {
+    gap: 4px;
+  }
+
+  .trace-toolbar {
+    display: grid;
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .trace-views {
+    justify-self: start;
+  }
+
+  .trace-search {
+    flex: 1;
+    width: auto;
+    min-width: 112px;
+  }
+
+  .trace-controls select {
+    max-width: 116px;
+  }
+
+  .trace-row {
+    gap: 8px;
+  }
+
+  .trace-row-meta {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-shrink: 1;
+    text-align: right;
+  }
+}

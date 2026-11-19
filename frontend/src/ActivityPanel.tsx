@@ -8,6 +8,7 @@ import {
   FileText,
   X,
   ArrowUpRight,
+  MessagesSquare,
   GitBranch,
   LoaderCircle,
   Check,
@@ -24,6 +25,7 @@ import {
   timeLabel,
 } from './components';
 import type { Agent, Artifact, Event, Run } from './types';
+import AgentTrace from './AgentTrace';
 
 // Capitalize only the first letter so agent names like "EVO · pytest" keep their casing.
 const displayName = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
@@ -35,6 +37,8 @@ export default function ActivityPanel({
   onClose,
   notify,
   selectedAgent,
+  traceAgentId,
+  onTraceChange,
 }: {
   run: Run | null;
   agents: Agent[];
@@ -42,13 +46,26 @@ export default function ActivityPanel({
   onClose: () => void;
   notify: (s: string, error?: boolean) => void;
   selectedAgent?: string | null;
+  traceAgentId?: string | null;
+  onTraceChange?: (id: string | null) => void;
 }) {
   const [tab, setTab] = useState('agents'),
     [expanded, setExpanded] = useState<string | null>(null),
     [artifacts, setArtifacts] = useState<Artifact[]>([]),
     [artifact, setArtifact] = useState<Artifact | null>(null),
     [selected, setSelected] = useState<Event | null>(null),
+    [localTrace, setLocalTrace] = useState<{ runId: string; agentId: string } | null>(null),
     [compacting, setCompacting] = useState<string | null>(null);
+  const openTraceId =
+    traceAgentId === undefined && localTrace?.runId === run?.id
+      ? localTrace?.agentId
+      : traceAgentId;
+  const tracedAgent = agents.find((a) => a.id === openTraceId && a.run_id === run?.id);
+  function showTrace(id: string | null) {
+    if (traceAgentId === undefined)
+      setLocalTrace(run && id ? { runId: run.id, agentId: id } : null);
+    onTraceChange?.(id);
+  }
   useEffect(() => {
     if (selectedAgent) {
       setTab('agents');
@@ -179,6 +196,13 @@ export default function ActivityPanel({
                         <Status status={a.status} />
                         <code>{a.id.slice(0, 8)}</code>
                       </div>
+                      {run && (
+                        <button className="agent-trace-open" onClick={() => showTrace(a.id)}>
+                          <MessagesSquare size={15} />
+                          View full thread
+                          <ArrowUpRight size={13} />
+                        </button>
+                      )}
                       <details className="agent-assignment">
                         <summary>Assignment</summary>
                         <p>{a.task}</p>
@@ -319,6 +343,9 @@ export default function ActivityPanel({
             </MarkdownText>
           </div>
         </Modal>
+      )}
+      {run && tracedAgent && (
+        <AgentTrace run={run} agent={tracedAgent} onClose={() => showTrace(null)} />
       )}
     </aside>
   );
