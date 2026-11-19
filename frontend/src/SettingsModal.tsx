@@ -106,7 +106,7 @@ export default function SettingsModal({
       setForm(saved);
       if (check) {
         const result = await post<Record<string, unknown>>('/settings/check');
-        setChecked(String(result.message || result.text || 'Connected. Your provider is ready.'));
+        setChecked(String(result.message || result.text || 'Connected.'));
       } else onClose();
     } catch (e) {
       setError(errorText(e));
@@ -116,11 +116,7 @@ export default function SettingsModal({
     }
   }
   return (
-    <Modal
-      title="Settings"
-      subtitle="Connect a model and set the pace of your agents."
-      onClose={onClose}
-    >
+    <Modal title="Settings" onClose={onClose}>
       <div className="settings-body">
         <label className="field-label">API protocol</label>
         <div className="segmented">
@@ -201,9 +197,7 @@ export default function SettingsModal({
             }
           />
         </div>
-        <p className="field-help">
-          A pasted key lasts until the server restarts.
-        </p>
+        <p className="field-help">A pasted key lasts until the server restarts.</p>
         <button
           className="disclosure-button"
           onClick={() => setAdvanced(!advanced)}
@@ -249,9 +243,7 @@ export default function SettingsModal({
                   </p>
                 </>
               ) : (
-                <p>
-                  Use your provider’s documented limits.
-                </p>
+                <p>Use your provider’s documented limits.</p>
               )}
             </div>
             <div className="form-grid">
@@ -365,9 +357,7 @@ export default function SettingsModal({
               Prices are used to report spending and to enforce spending limits. Leave them at 0 if
               you don't track cost. A cache write price of 0 is treated as the input price.
             </p>
-            <p className="field-help">
-              Agents execute Python and shell commands locally. Connect repositories you trust.
-            </p>
+            <p className="field-help">Agents execute Python and shell commands locally.</p>
           </div>
         )}
         {error && (

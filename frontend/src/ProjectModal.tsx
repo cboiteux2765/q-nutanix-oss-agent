@@ -35,11 +35,7 @@ export default function ProjectModal({
     }
   }
   return (
-    <Modal
-      title="Connect a repository"
-      subtitle="Connect a local repository."
-      onClose={onClose}
-    >
+    <Modal title="Connect a repository" onClose={onClose}>
       <form onSubmit={submit}>
         <div className="settings-body">
           <div className="project-modal-icon">

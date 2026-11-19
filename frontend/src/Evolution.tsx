@@ -719,8 +719,8 @@ function ExperimentDetail({
             {gate.paired && (
               <span>
                 Paired: {gate.paired.both} solved by both, {gate.paired.candidate_only} only by the
-                candidate, {gate.paired.baseline_only} only by the baseline, {gate.paired.neither} by
-                neither.
+                candidate, {gate.paired.baseline_only} only by the baseline, {gate.paired.neither}{' '}
+                by neither.
               </span>
             )}
             {gate.reasons.map((r) => (
@@ -1013,7 +1013,7 @@ function TextEvaluator({
     <div className="evaluation-panel">
       <p className="field-help">
         Compares written answers from the baseline and this version, scored by a model against your
-        criteria. It does not run tools or code, so it cannot show that code changes work.
+        criteria. It does not run tools or code.
       </p>
       <textarea
         className="code-input"

@@ -247,9 +247,7 @@ export default function ActivityPanel({
                 </div>
               ))
           ) : (
-            <Empty icon={<Bot size={25} />} title="Your team assembles here.">
-              Start a conversation. EVO will bring in the right agents as the work takes shape.
-            </Empty>
+            <Empty icon={<Bot size={25} />} title="No agents recorded" />
           )}
           {run?.branch && (
             <div className="branch-note">
@@ -280,9 +278,7 @@ export default function ActivityPanel({
               </button>
             ))
           ) : (
-            <Empty icon={<Activity size={25} />} title="A clear trail of the work.">
-              Messages, decisions, and tool activity will appear here as your agents get started.
-            </Empty>
+            <Empty icon={<Activity size={25} />} title="No activity recorded" />
           )}
         </div>
       ) : (
@@ -301,9 +297,7 @@ export default function ActivityPanel({
               </button>
             ))
           ) : (
-            <Empty icon={<Files size={25} />} title="The work, made tangible.">
-              Specs, implementation notes, and verification reports will collect here.
-            </Empty>
+            <Empty icon={<Files size={25} />} title="No artifacts recorded" />
           )}
         </div>
       )}

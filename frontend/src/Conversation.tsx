@@ -56,9 +56,7 @@ export function NewConversation({
       <div className="setup-message">
         <span className="bubble-sender">EVO</span>
         <div className="chat-bubble">
-          {project
-            ? 'A feature, a stubborn bug, or an idea you’re still figuring out. Where should we start?'
-            : 'When you’re ready, I’ll help you connect a repository and choose our first task.'}
+          {project ? 'What would you like to work on?' : 'Connect a repository to start.'}
         </div>
       </div>
       <div className="quick-replies">

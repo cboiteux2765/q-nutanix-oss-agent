@@ -144,14 +144,14 @@ export function MemoryView({ project, notify }: Props) {
           ))}
         </div>
       ) : (
-        <Empty icon={<BookOpen size={28} />} title="A little knowledge goes a long way.">
+        <Empty icon={<BookOpen size={28} />} title="No memory pages yet">
           Your agents will save useful findings here as they work. Add a first page to give them a
           head start.
         </Empty>
       )}
       {creating && (
         <Modal
-          title="Give an idea a home."
+          title="New memory page"
           subtitle="Pages are Markdown files, versioned with Git."
           onClose={() => setCreating(false)}
         >
@@ -249,7 +249,6 @@ export function SkillsView({ project, notify }: Props) {
       <div className="page-heading">
         <div>
           <h1>Skills</h1>
-          <p>Turn a useful procedure into something every agent can learn.</p>
         </div>
         <button className="button secondary" onClick={() => setCreating(true)}>
           <Plus size={15} />
@@ -272,7 +271,7 @@ export function SkillsView({ project, notify }: Props) {
                 <Status status={skillState(skill.status)} />
               </div>
               <h3>{skill.name}</h3>
-              <p>{skill.description || 'A reusable procedure for your project agents.'}</p>
+              {skill.description && <p>{skill.description}</p>}
               <div className="skill-card-footer">
                 <span>Version {skill.version || 1}</span>
                 <ArrowUpRight size={15} />
@@ -281,7 +280,7 @@ export function SkillsView({ project, notify }: Props) {
           ))}
         </div>
       ) : (
-        <Empty icon={<Sparkles size={28} />} title="Practice makes a skill.">
+        <Empty icon={<Sparkles size={28} />} title="No skills yet">
           Agents can propose reusable instructions from their work. Review a candidate here and
           activate it for future runs.
         </Empty>
@@ -336,11 +335,7 @@ export function SkillsView({ project, notify }: Props) {
         </Modal>
       )}
       {creating && (
-        <Modal
-          title="Teach a useful habit."
-          subtitle="New skills start as proposals for you to review."
-          onClose={() => setCreating(false)}
-        >
+        <Modal title="Propose a skill" onClose={() => setCreating(false)}>
           <form onSubmit={create}>
             <div className="settings-body">
               <label>

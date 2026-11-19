@@ -960,10 +960,6 @@ export function SpecLabView({ project, notify }: Props) {
       <div className="page-heading">
         <div>
           <h1>Spec Lab</h1>
-          <p>
-            Turn an issue snapshot into a cited product spec, compare agent harnesses on a frozen
-            benchmark, and evolve the spec prompt under governance.
-          </p>
         </div>
         <span className="subtle-tag" title="Active supplemental prompt for both harnesses">
           <ScrollText size={13} /> Prompt {gov.active_version}
@@ -1016,7 +1012,6 @@ export function SpecLabView({ project, notify }: Props) {
               );
             }}
           >
-            <div className="eyebrow">NEW SPEC · PRODUCT SPEC AGENT</div>
             <div className="field-group">
               <span className="field-title">Harness</span>
               {overview.harnesses.map((h) => (
@@ -1111,7 +1106,7 @@ export function SpecLabView({ project, notify }: Props) {
             {picker}
             <div className="field-group">
               <span className="field-title">
-                Cases <small>graded by deterministic rubrics, no model judge</small>
+                Cases <small>scored by deterministic rubrics</small>
               </span>
               <div className="run-picker">
                 {overview.cases.map((c) => (
@@ -1146,11 +1141,11 @@ export function SpecLabView({ project, notify }: Props) {
                 Select every available case
               </button>
             </div>
-            <p className="field-help">
-              {offline
-                ? 'Replayed offline; nothing is sent to a model.'
-                : `Worst case about ${compareUsable.length * compareHarnesses.length * 15} model calls. Live results are also saved to evals/results.`}
-            </p>
+            {!offline && (
+              <p className="field-help">
+                {`Worst case about ${compareUsable.length * compareHarnesses.length * 15} model calls. Live results are also saved to evals/results.`}
+              </p>
+            )}
             <button
               className="button primary"
               disabled={busy || running || !compareHarnesses.length || !compareUsable.length}
@@ -1208,7 +1203,8 @@ export function SpecLabView({ project, notify }: Props) {
             <p className="field-help">
               The Prime-RLM orchestrator researches the issue, proposes a revision of the active
               prompt from reviewer feedback, writes specs with both prompts and has a critic judge
-              them. Nothing changes until every gate passes and a named reviewer promotes it.
+              them. A candidate becomes active after it clears the gates and a named reviewer
+              promotes it.
             </p>
             {picker}
             <label className="field-group">
@@ -1243,10 +1239,6 @@ export function SpecLabView({ project, notify }: Props) {
                     <strong>{g.name}.</strong> {g.rule}
                   </li>
                 ))}
-                <li>
-                  <strong>Monitoring.</strong> Roll back from the version list if later runs get
-                  worse.
-                </li>
               </ol>
             </div>
           </form>

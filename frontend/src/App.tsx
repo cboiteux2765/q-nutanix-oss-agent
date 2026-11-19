@@ -740,8 +740,7 @@ export default function App() {
   const resources = !project ? (
     <div className="empty-workspace">
       <FolderGit2 size={30} />
-      <h1>A home for your project.</h1>
-      <p>Connect a repository to start collecting memory, skills, and ideas.</p>
+      <h1>No repository connected</h1>
       <button className="button primary" onClick={beginSetup}>
         Set up a project
         <ArrowRight size={15} />
@@ -901,8 +900,7 @@ export default function App() {
             ) : serverError ? (
               <div className="connection-error">
                 <AlertCircle size={28} />
-                <h1>Let’s get connected.</h1>
-                <p>The local EVO server isn’t available yet.</p>
+                <h1>Server unavailable</h1>
                 <code>{serverError}</code>
                 <button className="button primary" onClick={initialize}>
                   <RefreshCw size={15} />

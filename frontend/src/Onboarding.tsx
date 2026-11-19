@@ -150,9 +150,7 @@ export default function Onboarding({
       )}
       {current > 2 && (
         <div className="setup-message">
-          <div className="chat-bubble">
-            All set. What would you like to start with? Pick an idea below or write your own.
-          </div>
+          <div className="chat-bubble">What would you like to start with?</div>
         </div>
       )}
 
@@ -277,7 +275,7 @@ export default function Onboarding({
               <p className="field-help setup-hint">
                 {settings?.api_key_configured
                   ? 'Model requests start when you send your first message.'
-                  : 'Open Settings to add your key. OpenAI and compatible providers are supported.'}
+                  : 'OpenAI and compatible providers are supported.'}
               </p>
               <div className="setup-actions">
                 <button

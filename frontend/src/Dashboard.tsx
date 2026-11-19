@@ -781,7 +781,6 @@ export function Dashboard({
                     ? 'Attention unavailable'
                     : 'Checking for updates…'}
               </p>
-              {data && <small>Workflow blockers and repository suggestions appear here.</small>}
             </div>
           )}
         </section>

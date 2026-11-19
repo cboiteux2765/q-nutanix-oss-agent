@@ -152,13 +152,13 @@ export function Empty({
 }: {
   icon: ReactNode;
   title: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <div className="empty-state">
       <div className="empty-icon">{icon}</div>
       <h3>{title}</h3>
-      <p>{children}</p>
+      {children && <p>{children}</p>}
     </div>
   );
 }

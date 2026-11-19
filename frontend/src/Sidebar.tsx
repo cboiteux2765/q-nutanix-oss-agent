@@ -32,10 +32,10 @@ export const RESOURCE_TABS = [
 ];
 
 const CORE_ROLES = [
-  { role: 'spec', name: 'Spec', description: 'Understand & plan', icon: ClipboardList },
-  { role: 'code', name: 'Code', description: 'Build the change', icon: Code2 },
-  { role: 'test', name: 'Test', description: 'Verify the behavior', icon: FlaskConical },
-  { role: 'qa', name: 'QA', description: 'Independent review', icon: ShieldCheck },
+  { role: 'spec', name: 'Spec', icon: ClipboardList },
+  { role: 'code', name: 'Code', icon: Code2 },
+  { role: 'test', name: 'Test', icon: FlaskConical },
+  { role: 'qa', name: 'QA', icon: ShieldCheck },
 ];
 
 type Props = {
@@ -128,13 +128,11 @@ export default function Sidebar(props: Props) {
           <FolderGit2 size={17} />
           <span>
             <strong>{project?.name || 'Connect a project'}</strong>
-            <small>{project ? 'Local repository' : 'Set up your workspace'}</small>
           </span>
           <ChevronDown size={14} />
         </button>
         {projectMenu && (
           <div className="project-menu">
-            <div className="menu-caption">Your projects</div>
             {projects.map((p) => (
               <button key={p.id} onClick={() => props.onSelectProject(p)} title={p.path}>
                 <FolderGit2 size={14} />
@@ -182,7 +180,7 @@ export default function Sidebar(props: Props) {
         {crew.some((agent) => ACTIVE_STATES.includes(agent.status)) && <span>Working</span>}
       </div>
       <nav className="agent-roster" aria-label="Agents">
-        {CORE_ROLES.map(({ role, name, description, icon: Icon }) => {
+        {CORE_ROLES.map(({ role, name, icon: Icon }) => {
           const working = crew.filter(
             (agent) => agent.role === role && ACTIVE_STATES.includes(agent.status),
           ).length;
@@ -193,7 +191,7 @@ export default function Sidebar(props: Props) {
               type="button"
               className={`crew-link ${selected ? 'selected' : ''}`}
               aria-label={`${name} agent history`}
-              aria-describedby={`sidebar-phase-${role}-status`}
+              aria-describedby={working ? `sidebar-phase-${role}-status` : undefined}
               aria-current={selected ? 'page' : undefined}
               onClick={() => props.onPhaseHistory(role)}
               title={`View ${name} agent history`}
@@ -203,9 +201,7 @@ export default function Sidebar(props: Props) {
               </span>
               <span>
                 <strong>{name}</strong>
-                <small id={`sidebar-phase-${role}-status`}>
-                  {working ? `${working} active` : description}
-                </small>
+                {working > 0 && <small id={`sidebar-phase-${role}-status`}>{working} active</small>}
               </span>
               <ChevronRight className="sidebar-phase-chevron" size={14} aria-hidden="true" />
             </button>

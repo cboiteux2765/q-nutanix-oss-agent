@@ -54,7 +54,7 @@ export default function MainAgentModal({
               rows={6}
               value={profile.instructions}
               onChange={(e) => setProfile({ ...profile, instructions: e.target.value })}
-              placeholder="How should this agent work with you? Project conventions, priorities, communication style…"
+              placeholder="Project conventions, priorities, communication style…"
             />
           </label>
           <label>
@@ -68,7 +68,7 @@ export default function MainAgentModal({
           </label>
           <p className="field-help">
             Only for this repository. The main agent and its team use this model. Changes apply to
-            new assignments; work already running keeps its settings.
+            new assignments.
           </p>
           {error && (
             <div className="form-error" role="alert">
