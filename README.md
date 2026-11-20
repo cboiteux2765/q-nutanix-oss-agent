@@ -7,13 +7,9 @@ UCSB CMPSC 189A, Fall 2026 · Sponsored by Nutanix
 **Documents:** [Drive Folder](https://drive.google.com/drive/folders/1gU4mTCUmGwYahgBPCl9y5lf1rDZUrHXl) · [Project Vision](https://docs.google.com/document/d/1U8PigryM9BC_RDWqhW7rS_osOF0PKRiAjhZTcsWvtJ4/edit) · [Team Journal](https://docs.google.com/document/d/1mD9hfMsIwTCFuCEDhGSnKR5YvTnjHzCAGTxGxDNCquI/edit)
 
 ## Demo
+https://github.com/user-attachments/assets/d2377ef7-a01f-4e6b-b662-0e1a6360f6af
 
-https://github.com/user-attachments/assets/7e693055-7d61-4603-9232-5e06c9e0200f
-
-
-
-*A real 47-minute run on pytest issue #14442, edited to 2½ minutes. Click to watch.*
-
+*A 3-minute tour of EVO: parallel workflows, an auditable agent team, steering and approvals, proactive suggestions, and self-improvement behind an evidence gate.*
 ## What it is
 
 An AI agent that helps open-source maintainers. It improves by updating its memory, tools and workflows, not by retraining the model.
