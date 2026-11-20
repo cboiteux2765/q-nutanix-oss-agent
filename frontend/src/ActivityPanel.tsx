@@ -138,7 +138,7 @@ export default function ActivityPanel({
         <div className="panel-scroll">
           <div className="workflow-card">
             <div className="section-label">
-              WORKFLOW <span>{phase === 'qa' ? 'QA' : phase}</span>
+              WORKFLOW <span>{phase === 'qa' ? 'QA' : phase === 'reviewed' ? 'Reviewed (no change)' : phase}</span>
             </div>
             <div className="workflow-track">
               {roles.map((r, i) => {

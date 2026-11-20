@@ -692,7 +692,8 @@ class _Scope:
         return self.broker.workflow.handoff(self.agent_id, target, summary, artifacts, commit, passed)
 
     def workflow_advance(self, phase: str, handoff_id: str | None = None) -> dict:
-        """advances the current phase. Triage -> Spec -> Code -> Test -> QA -> ready."""
+        """advances the current phase. Triage -> Spec -> Code -> Test -> QA -> ready. The root agent closes
+        review-only work that published no commit with 'reviewed', citing a 'reviewed' handoff with the review artifact."""
         return self.broker.workflow.advance(self.agent_id, phase, handoff_id)
 
     def workflow_finding(self, title: str, details: str, severity: str = "medium",

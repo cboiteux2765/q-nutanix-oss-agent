@@ -54,3 +54,34 @@ def test_findings_validate_severity(store, run):
         workflow.finding("test", "Broken", "details", severity="urgent")
     finding = workflow.finding("test", "Broken", "details", severity="high")
     assert workflow.status(run["id"])["findings"][0]["id"] == finding["id"]
+
+
+def _review_handoff(store, workflow, run):
+    artifact = ArtifactStore(store).write(run["id"], "root", "review.md", "# PR review\nLooks correct.")
+    return workflow.handoff("root", "reviewed", "Review complete; no change needed.", artifacts=[artifact["id"]])
+
+
+def test_review_only_work_closes_as_reviewed(store, run):
+    workflow = Workflow(store)
+    store.put("runs", run["id"], {"phase": "code"})
+    with pytest.raises(ValueError, match="handoff to 'reviewed'"):
+        workflow.advance("root", "reviewed")
+    handoff = _review_handoff(store, workflow, run)
+    with pytest.raises(PermissionError):
+        workflow.advance("code", "reviewed", handoff["id"])
+    assert workflow.advance("root", "reviewed", handoff["id"])["phase"] == "reviewed"
+    assert workflow.advance("root", "spec")["phase"] == "spec"  # a follow-up can still start
+
+
+def test_reviewed_is_not_a_shortcut_past_test_and_qa(store, run):
+    from pathlib import Path
+    workflow = Workflow(store)
+    store.put("runs", run["id"], {"phase": "code"})
+    (Path(run["workdir"]) / "fix.py").write_text("x = 1\n", encoding="utf-8")
+    WorkspaceManager(store).commit("code", "Fix")
+    handoff = _review_handoff(store, workflow, run)
+    with pytest.raises(ValueError, match="must pass Test and QA"):
+        workflow.advance("root", "reviewed", handoff["id"])
+    store.put("runs", run["id"], {"phase": "test"})
+    with pytest.raises(ValueError, match="cannot close as reviewed from test"):
+        workflow.advance("root", "reviewed", handoff["id"])

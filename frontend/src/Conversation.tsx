@@ -79,6 +79,7 @@ export function NewConversation({
 
 function phaseLabel(phase?: string | null) {
   if (phase === 'ready') return 'Ready for review';
+  if (phase === 'reviewed') return 'Reviewed';
   if (phase === 'qa') return 'QA';
   return (phase || 'triage').replace(/_/g, ' ');
 }

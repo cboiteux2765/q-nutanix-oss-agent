@@ -13,7 +13,10 @@ from .workspaces import git, safe_path
 
 _LOCK = RLock()
 _PHASES = ("triage", "spec", "code", "test", "qa", "ready")
-_TARGETS = set(_PHASES) | {"blocked"}
+# "reviewed" closes review-only work (for example a review of someone else's pull request) that
+# published no implementation commit. "ready" keeps meaning: a commit that passed Test and QA.
+_TERMINAL = {"ready", "reviewed"}
+_TARGETS = set(_PHASES) | {"blocked", "reviewed"}
 
 
 class ArtifactStore:
@@ -117,13 +120,14 @@ class Workflow:
             root = run.get("root_agent_id") == agent_id
             if role != current and not root:
                 raise PermissionError("Only the active role or root agent can advance the workflow.")
-            if current == "ready":
+            if current in _TERMINAL:
                 if not root or phase != "spec":
                     raise ValueError("The root agent can start a follow-up implementation at Spec.")
                 self.store.put("runs", run["id"], {
                     "phase": "spec", "workflow_round": run.get("workflow_round", 1) + 1,
                     "tested_commit": None, "verified_commit": None,
                     "previous_implementation_commit": run.get("implementation_commit"),
+                    "round_start_commit": run.get("implementation_commit"),
                     "spec_base_commit": run.get("implementation_commit"),
                     "specification_artifact_id": None, "specification_status": None,
                 })
@@ -132,6 +136,8 @@ class Workflow:
                 })
                 return self.status(run["id"])
             evidence = require(self.store, "workflow_handoffs", handoff_id) if handoff_id else None
+            if phase == "reviewed":
+                return self._close_reviewed(run, agent_id, current, root, evidence)
             if evidence and (evidence["run_id"] != run["id"] or evidence["target"] != phase
                              or evidence["source"] != current
                              or evidence.get("round", 1) != run.get("workflow_round", 1)):
@@ -181,6 +187,28 @@ class Workflow:
             self.store.event(run["id"], agent_id, "workflow.phase", {
                 "previous": current, "phase": phase, "handoff_id": handoff_id, "commit": commit,
             })
+        return self.status(run["id"])
+
+    def _close_reviewed(self, run: dict, agent_id: str, current: str, root: bool, evidence: dict | None) -> dict:
+        """Close review-only work without an implementation commit. Caller holds _LOCK."""
+        if not root:
+            raise PermissionError("Only the root agent can close a workflow as reviewed.")
+        if current not in {"triage", "spec", "code", "blocked"}:
+            raise ValueError(f"Workflow cannot close as reviewed from {current}.")
+        # Runs from before round_start_commit existed recorded the round's starting commit as spec_base_commit.
+        start = run["round_start_commit"] if "round_start_commit" in run else (
+            run.get("spec_base_commit") if run.get("workflow_round", 1) > 1 else None)
+        if run.get("implementation_commit") != start:
+            raise ValueError("This workflow published an implementation commit; it must pass Test and QA "
+                             "to reach Ready.")
+        if (not evidence or evidence["run_id"] != run["id"] or evidence["target"] != "reviewed"
+                or evidence.get("round", 1) != run.get("workflow_round", 1) or not evidence["artifacts"]):
+            raise ValueError("Closing as reviewed requires a handoff to 'reviewed' from this run "
+                             "with the review artifact attached.")
+        self.store.put("runs", run["id"], {"phase": "reviewed"})
+        self.store.event(run["id"], agent_id, "workflow.phase", {
+            "previous": current, "phase": "reviewed", "handoff_id": evidence["id"], "commit": None,
+        })
         return self.status(run["id"])
 
     def finding(self, agent_id: str, title: str, details: str, severity: str = "medium",

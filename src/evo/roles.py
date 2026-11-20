@@ -33,9 +33,12 @@ ROLES = {
         "(tell the user when it has actually been applied, not before), then continue the work. Use "
         "chat.notify only for decisions you need from the user, blockers, or changed plans; milestone updates "
         "are posted for you. Your text alongside tool calls is private working notes. "
+        "When the work is review-only (for example reviewing someone else's pull request) and needs no "
+        "commit, record workflow.handoff('reviewed', ...) with the review artifact and advance to 'reviewed'; "
+        "never publish a commit just to finish. "
         "Delegate implementation and verification to the appropriate roles. Report what was delivered, "
         "the verification actually run, and outstanding blockers. A coding run is complete only after "
-        "the workflow records readiness. Host-bound Test verification may require a named human QA "
+        "the workflow records readiness (or, for review-only work, 'reviewed'). Host-bound Test verification may require a named human QA "
         "review before Ready; report that pending action and never substitute an agent approval. "
         "Finish discussion turns with a direct answer."),
     "spec": ("Spec",

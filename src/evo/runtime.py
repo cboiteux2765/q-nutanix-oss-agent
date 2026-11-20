@@ -356,7 +356,7 @@ class Runtime:
                     raise ValueError("Finish or stop the current assignment before starting another.")
                 return await self.steer(active[-1]["id"], message)
             latest = next((run for run in reversed(runs) if not run.get("evaluation")), None)
-            if latest and not new_assignment and latest.get("phase") != "ready":
+            if latest and not new_assignment and latest.get("phase") not in {"ready", "reviewed"}:
                 return await self.steer(latest["id"], message)
             return await self.start_run(project_id, message)
 
@@ -654,6 +654,7 @@ class Runtime:
                 "test": f"Code published {commit or 'a change'}; Test is verifying it.",
                 "qa": f"Test passed {commit or 'the change'}; QA is reviewing it.",
                 "ready": f"QA passed {commit or 'the change'}. The work is ready.",
+                "reviewed": "Review complete; no code change was needed. The workflow is closed.",
                 "blocked": f"The work is blocked during {before}.",
             }
             if phase in messages:
@@ -732,7 +733,7 @@ class Runtime:
             await self._await(changed, 30.0)
         if root:
             phase = require(self.store, "runs", run_id)["phase"]
-            status = "completed" if phase == "ready" else "waiting"
+            status = "completed" if phase in {"ready", "reviewed"} else "waiting"
             run = self._run_status(run_id, status)
             self._notify_listeners("turn_finished", run, status=status)
         else:
